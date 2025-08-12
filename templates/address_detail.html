@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}{{ wallet }} 的持仓盈亏 - Smart Money Tracker{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">
+                    <i class="fas fa-wallet me-2"></i>{{ wallet }} 的持仓盈亏
+                </h3>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-light text-dark me-3">
+                        <i class="fas fa-coins me-1"></i>{{ record_count }} 个代币
+                    </span>
+                    <form method="POST" action="/download_address_tokens">
+                        <input type="hidden" name="walletAddress" value="{{ wallet }}">
+                        <button class="btn btn-sm btn-light">
+                            <i class="fas fa-file-excel me-1"></i>导出数据
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if error %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
+                </div>
+            {% elif table %}
+                <div class="table-responsive">
+                    {{ table | safe }}
+                </div>
+                
+                <div class="alert alert-info mt-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    完整数据包含所有字段：代币符号、合约地址、买入数量、卖出数量、持仓数量、持仓市值、总盈利、总收益率等。
+                    点击"导出数据"按钮下载完整Excel文件。
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>该地址暂无数据。
+                </div>
+            {% endif %}
+            
+            <div class="d-flex justify-content-between mt-4">
+                <a href="/" class="btn btn-outline-primary">
+                    <i class="fas fa-home me-2"></i>返回首页
+                </a>
+                <a href="/smart_accounts?targetAddress={{ wallet }}" class="btn btn-primary">
+                    <i class="fas fa-user-secret me-2"></i>检测聪明钱小号
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

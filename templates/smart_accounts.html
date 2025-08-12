@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}聪明钱小号 - Smart Money Tracker{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0"><i class="fas fa-user-secret me-2"></i>聪明钱小号检测</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-5">
+                        <label for="targetAddress" class="form-label">目标钱包地址</label>
+                        <input type="text" class="form-control" id="targetAddress" name="targetAddress" 
+                               placeholder="请输入钱包地址" value="{{ target_address or '' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="chainId" class="form-label">链ID</label>
+                        <select class="form-select" id="chainId" name="chainId">
+                            <option value="501" {% if chain_id == "501" %}selected{% endif %}>Solana (501)</option>
+                            <option value="56" {% if chain_id == "56" %}selected{% endif %}>BNB Chain (56)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="maxTokens" class="form-label">最大代币数</label>
+                        <input type="number" class="form-control" id="maxTokens" name="maxTokens" value="{{ max_tokens or 50 }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="pageLimit" class="form-label">每代币翻页次数</label>
+                        <input type="number" class="form-control" id="pageLimit" name="pageLimit" value="{{ page_limit or 5 }}">
+                    </div>
+                </div>
+                
+                <div class="tooltip-box">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    <strong>分析原理：</strong> 
+                    系统会分析目标地址交易过的代币，找出在目标地址之前交易这些代币的其他地址。
+                    如果一个地址多次出现在目标地址之前交易，它可能是目标地址的"小号"。
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i>开始检测
+                </button>
+            </form>
+
+            {% if elapsed_time is defined %}
+                <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+                    <div>
+                        <span class="badge bg-primary rounded-pill me-2">{{ record_count }}</span>
+                        <span>个潜在小号地址</span>
+                    </div>
+                    <div>
+                        <span class="text-muted me-3">分析耗时: {{ elapsed_time }}秒</span>
+                        <form method="POST" action="/download_smart_accounts" class="d-inline">
+                            <button class="btn btn-success">
+                                <i class="fas fa-file-excel me-2"></i>导出结果
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if results %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>排名</th>
+                                <th>地址</th>
+                                <th>出现次数</th>
+                                <th>可疑度</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rank, (address, count) in enumerate(results, 1) %}
+                                <tr>
+                                    <td>{{ rank }}</td>
+                                    <td>
+                                        <a href="/address/{{ address }}" class="text-decoration-none">
+                                            {{ address[:8] }}...{{ address[-6:] }}
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-secondary ms-2 copy-btn" 
+                                                data-clipboard-text="{{ address }}"
+                                                title="复制地址">
+                                            <i class="fas fa-copy small-icon"></i>
+                                        </button>
+                                    </td>
+                                    <td>{{ count }}</td>
+                                    <td>
+                                        {% if count > 10 %}
+                                            <span class="badge bg-danger">非常高</span>
+                                        {% elif count > 5 %}
+                                            <span class="badge bg-warning">高</span>
+                                        {% elif count > 2 %}
+                                            <span class="badge bg-info">中</span>
+                                        {% else %}
+                                            <span class="badge bg-success">低</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% elif elapsed_time is defined %}
+                <div class="alert alert-info mt-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    未找到可能的聪明钱小号地址。尝试增加"最大代币数"或"每代币翻页次数"。
+                </div>
+            {% else %}
+                <div class="alert alert-info mt-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    请输入目标钱包地址开始分析可能的聪明钱小号。
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
+<script>
+    // 初始化复制按钮
+    new ClipboardJS('.copy-btn');
+    
+    // 添加复制成功提示
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const originalHTML = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-check small-icon"></i> 已复制';
+            
+            setTimeout(() => {
+                this.innerHTML = originalHTML;
+            }, 2000);
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %}

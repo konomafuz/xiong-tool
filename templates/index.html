@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Money Tracker - 首页{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- 顶部标题区域 -->
+    <div class="text-center mb-5">
+        <h1 class="display-4 fw-bold text-gradient-primary mb-3">Smart Money Tracker</h1>
+        <p class="lead text-muted mb-4">追踪区块链上的聪明钱行为，发现高收益交易策略</p>
+    </div>
+    
+    <!-- 功能卡片区域 -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm hover-shadow transition-all">
+                <div class="card-body text-center p-4">
+                    <div class="icon-circle bg-primary-light text-primary mb-4 mx-auto">
+                        <i class="fas fa-trophy fs-3"></i>
+                    </div>
+                    <h3 class="h4 mb-3">Top盈利地址</h3>
+                    <p class="text-muted mb-4">发现特定代币上盈利最高的交易者地址，分析他们的交易策略和持仓。</p>
+                    <a href="/top_earners" class="btn btn-sm btn-outline-primary stretched-link">开始探索</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm hover-shadow transition-all">
+                <div class="card-body text-center p-4">
+                    <div class="icon-circle bg-warning-light text-warning mb-4 mx-auto">
+                        <i class="fas fa-user-secret fs-3"></i>
+                    </div>
+                    <h3 class="h4 mb-3">聪明钱小号</h3>
+                    <p class="text-muted mb-4">识别可能属于同一实体的多个地址，发现隐藏的交易模式。</p>
+                    <a href="/smart_accounts" class="btn btn-sm btn-outline-primary stretched-link">开始分析</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm hover-shadow transition-all">
+                <div class="card-body text-center p-4">
+                    <div class="icon-circle bg-success-light text-success mb-4 mx-auto">
+                        <i class="fas fa-magic fs-3"></i>
+                    </div>
+                    <h3 class="h4 mb-3">gmgn备注工具</h3>
+                    <p class="text-muted mb-4">输入CA地址和名称，获取Top持仓和盈利分析结果，并自动备注。</p>
+                    <a href="{{ url_for('gmgn_tool') }}" class="btn btn-sm btn-success stretched-link">进入工具</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 使用指南区域 -->
+    <div class="row justify-content-center mb-5">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white py-3">
+                    <h2 class="h5 mb-0"><i class="fas fa-lightbulb me-2"></i>如何使用本工具</h2>
+                </div>
+                <div class="card-body p-4">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item border-0 py-3">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3 text-primary">
+                                    <i class="fas fa-chevron-right"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-1">Top盈利地址</h5>
+                                    <p class="mb-0 text-muted">输入代币合约地址，查看该代币上盈利最高的交易者</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item border-0 py-3">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3 text-primary">
+                                    <i class="fas fa-chevron-right"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-1">聪明钱小号</h5>
+                                    <p class="mb-0 text-muted">输入目标地址，分析可能属于同一实体的关联地址</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item border-0 py-3">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3 text-primary">
+                                    <i class="fas fa-chevron-right"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-1">地址详情</h5>
+                                    <p class="mb-0 text-muted">点击任何地址可查看其详细交易历史和持仓情况</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item border-0 py-3">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3 text-primary">
+                                    <i class="fas fa-chevron-right"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-1">数据导出</h5>
+                                    <p class="mb-0 text-muted">所有结果均可导出为Excel文件进行深入分析</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+
+<style>
+    /* 自定义样式 */
+    .text-gradient-primary {
+        background: linear-gradient(90deg, #4e73df 0%, #224abe 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .icon-circle {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .bg-primary-light {
+        background-color: rgba(78, 115, 223, 0.1);
+    }
+    
+    .bg-warning-light {
+        background-color: rgba(243, 184, 72, 0.1);
+    }
+    
+    .bg-success-light {
+        background-color: rgba(28, 200, 138, 0.1);
+    }
+    
+    .hover-shadow {
+        transition: all 0.3s ease;
+    }
+    
+    .hover-shadow:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .transition-all {
+        transition: all 0.3s ease;
+    }
+</style>
+{% endblock %}

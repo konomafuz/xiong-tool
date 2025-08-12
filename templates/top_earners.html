@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Top盈利地址 - Smart Money Tracker{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0"><i class="fas fa-trophy me-2"></i>Top盈利地址查询</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-8">
+                        <label for="tokenAddress" class="form-label">代币合约地址</label>
+                        <input type="text" class="form-control" id="tokenAddress" name="tokenAddress" 
+                               placeholder="请输入合约地址" value="{{ token or '' }}" required>
+                        <div class="form-text">
+                            示例: HtTYHz1Kf3rrQo6AqDLmss7gq5WrkWAaXn3tupUZbonk
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search me-2"></i>查询
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            {% if record_count is defined %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-primary rounded-pill me-2">{{ record_count }}</span>
+                        <span>条记录</span>
+                    </div>
+                    <form method="POST" action="/download_top_earners">
+                        <input type="hidden" name="tokenAddress" value="{{ token }}">
+                        <button class="btn btn-success">
+                            <i class="fas fa-file-excel me-2"></i>导出完整数据
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+
+            {% if table %}
+                <div class="table-responsive">
+                    {{ table | safe }}
+                </div>
+            {% else %}
+                <div class="alert alert-info mt-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    请输入代币合约地址查询顶级盈利地址。查询结果将显示该代币上盈利最高的交易者及其交易详情。
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
