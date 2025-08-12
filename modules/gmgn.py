@@ -79,6 +79,9 @@ def merge_and_format(holders, traders, ca_name):
         addr_map[addr] = {
             "address": addr,
             "emoji": h["pic"],
+            "holder": True,
+            "trader": False,
+            "realizedProfit": None,
             "name": f"{ca_name}-top{idx}"
         }
     # traders
@@ -86,13 +89,27 @@ def merge_and_format(holders, traders, ca_name):
         addr = t["address"]
         if not addr:
             continue
+        profit_str = f"{t['realizedProfit']}k"
         if addr in addr_map:
-            addr_map[addr]["name"] = f"{ca_name}-盈利{t['realizedProfit']}k-top{idx}"
+            addr_map[addr]["trader"] = True
+            addr_map[addr]["realizedProfit"] = t["realizedProfit"]
+            addr_map[addr]["name"] = f"{ca_name}-盈利{profit_str}-top1"
             addr_map[addr]["emoji"] = t["pic"]
         else:
             addr_map[addr] = {
                 "address": addr,
                 "emoji": t["pic"],
-                "name": f"{ca_name}-盈利{t['realizedProfit']}k"
+                "holder": False,
+                "trader": True,
+                "realizedProfit": t["realizedProfit"],
+                "name": f"{ca_name}-盈利{profit_str}"
             }
-    return list(addr_map.values())
+    # 只保留需要的字段
+    result = []
+    for item in addr_map.values():
+        result.append({
+            "address": item["address"],
+            "emoji": item["emoji"],
+            "name": item["name"]
+        })
+    return result

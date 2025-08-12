@@ -286,7 +286,6 @@ def gmgn_tool():
             if remark_type == "gmgn":
                 result_json_str = json.dumps(result, ensure_ascii=False, indent=2)
             else:  # okx备注
-                # 只输出地址:备注,地址,备注,...格式
                 okx_lines = []
                 for item in result:
                     addr = item.get("address", "")
