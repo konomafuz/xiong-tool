@@ -261,7 +261,6 @@ def download_smart_accounts():
                 "出现次数": count,
                 "可疑度": "非常高" if count > 10 else "高" if count > 5 else "中" if count > 2 else "低"
             })
-        
         df = pd.DataFrame(data)
         filename_prefix = f"smart_accounts_{session['smart_accounts_params']['targetAddress'][:10]}"
         return export_to_excel(df, filename_prefix)
@@ -277,7 +276,7 @@ def gmgn_tool():
         ca_name = request.form.get("caName", "").strip()
         chain_id = request.form.get("chainId", "501").strip()
         if not ca_address or not ca_name:
-            flash("请输入CA地址和名称", "danger")
+            flash("请输入CA地址以及名称", "danger")
             return render_template("gmgn.html")
         try:
             holders = gmgn.fetch_top_holders(chain_id, ca_address)
