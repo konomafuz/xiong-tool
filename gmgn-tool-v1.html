@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>gmgn备注工具</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #111; color: #eee; padding: 20px; }
+  input, button { padding: 6px; margin: 5px; }
+  textarea { width: 100%; height: 300px; background: #222; color: #0f0; padding: 10px; }
+</style>
+</head>
+<body>
+<h2>gmgn备注工具</h2>
+
+<label>代币 CA：</label>
+<input id="ca" type="text" placeholder="输入CA地址" size="60"><br>
+<label>代币名称：</label>
+<input id="caName" type="text" placeholder="输入代币名称" size="30"><br>
+<button onclick="runTool()">开始获取</button>
+
+<h3>结果 JSON</h3>
+<textarea id="output"></textarea><br>
+<button onclick="copyOutput()">复制 JSON</button>
+
+<script>
+async function fetchAPI(url) {
+    const finalUrl = "https://corsproxy.io/?" + encodeURIComponent(url);
+    const res = await fetch(finalUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+}
+
+function getEmoji(tagList) {
+    const hasFish = tagList.some(t => t.includes("suspectedPhishingWallet"));
+    const hasDiamond = tagList.some(t => t.includes("diamondHands"));
+    if (hasFish && hasDiamond) return "🐠";
+    if (hasFish) return "🐟";
+    if (hasDiamond) return "💎";
+    return "";
+}
+
+async function runTool() {
+    const ca = document.getElementById("ca").value.trim();
+    const caName = document.getElementById("caName").value.trim();
+    if (!ca || !caName) {
+        alert("请填写CA和代币名称");
+        return;
+    }
+    try {
+        const timestamp = Date.now();
+
+        // Top Holders
+        const holdersUrl = `https://www.okx.com/priapi/v1/dx/market/v2/holders/ranking-list?chainId=501&tokenAddress=${ca}&t=${timestamp}`;
+        const holdersData = await fetchAPI(holdersUrl);
+        let holdersList = holdersData.data?.slice(0,100) || [];
+        holdersList = holdersList
+            .filter(h => h.boughtAmount !== "")
+            .map((h, idx) => ({
+                address: h.holderWalletAddress,
+                name: `${caName}-top${idx+1}`,
+                pic: getEmoji(h.tagList || []),
+                topRank: idx+1
+            }));
+
+        // Top Traders
+        const tradersUrl = `https://web3.okx.com/priapi/v1/dx/market/v2/pnl/top-trader/ranking-list?chainId=501&tokenContractAddress=${ca}&t=${timestamp}`;
+        const tradersData = await fetchAPI(tradersUrl);
+        let tradersList = tradersData.data?.slice(0,100) || [];
+        tradersList = tradersList.map(t => ({
+            address: t.holderWalletAddress,
+            profit: (t.realizedProfit/1000).toFixed(2) + "k",
+            pic: getEmoji(t.tagList || [])
+        }));
+
+        // 合并去重
+        const resultMap = new Map();
+
+        holdersList.forEach(h => {
+            resultMap.set(h.address, {
+                address: h.address,
+                name: h.name,
+                pic: h.pic,
+                topRank: h.topRank
+            });
+        });
+
+        tradersList.forEach(t => {
+            if (resultMap.has(t.address)) {
+                let item = resultMap.get(t.address);
+                item.name = `${caName}-盈利${t.profit}-top${item.topRank}`;
+                item.pic = item.pic || t.pic;
+            } else {
+                resultMap.set(t.address, {
+                    address: t.address,
+                    name: `${caName}-盈利${t.profit}`,
+                    pic: t.pic
+                });
+            }
+        });
+
+        const finalResult = Array.from(resultMap.values()).map(({address,name,pic})=>({address,name,pic}));
+
+        document.getElementById("output").value = JSON.stringify(finalResult, null, 2);
+    } catch (err) {
+        console.error(err);
+        alert("请求失败：" + err.message);
+    }
+}
+
+function copyOutput() {
+    const text = document.getElementById("output").value;
+    navigator.clipboard.writeText(text).then(()=>alert("已复制到剪贴板"));
+}
+</script>
+</body>
+</html>
