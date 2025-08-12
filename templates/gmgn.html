@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>gmgn工具</h2>
+<h2>备注工具</h2>
 <form method="post">
     <div class="form-group">
         <label>CA地址</label>
@@ -14,21 +14,21 @@
         <label>链ID</label>
         <input type="text" name="chainId" class="form-control" value="501">
     </div>
+    <div class="form-group">
+        <label>备注类型</label>
+        <select name="remarkType" class="form-control">
+            <option value="okx">okx备注</option>
+            <option value="gmgn">gmgn备注</option>
+        </select>
+    </div>
     <button type="submit" class="btn btn-primary">查询</button>
 </form>
 {% if result_json_str %}
-    <h4 class="mt-4">结果 JSON：</h4>
-    <div style="position: relative;">
-        <button class="btn btn-outline-secondary btn-sm" style="position: absolute; right: 0; top: 0;" onclick="copyJson()">复制</button>
-        <pre id="json-result" style="padding-top:2.5em;">{{ result_json_str }}</pre>
+    <h4 class="mt-4">结果：</h4>
+    <div style="margin-bottom: 1em;">
+        <pre id="json-result" style="max-height:400px;overflow:auto; background:#f8f9fa; border-radius:6px; padding:2em 1em 1em 1em; margin:0;">
+{{ result_json_str }}
+        </pre>
     </div>
-    <script>
-        function copyJson() {
-            const text = document.getElementById('json-result').innerText;
-            navigator.clipboard.writeText(text).then(function() {
-                alert('已复制到剪贴板');
-            });
-        }
-    </script>
 {% endif %}
 {% endblock %}

@@ -275,6 +275,7 @@ def gmgn_tool():
         ca_address = request.form.get("caAddress", "").strip()
         ca_name = request.form.get("caName", "").strip()
         chain_id = request.form.get("chainId", "501").strip()
+        remark_type = request.form.get("remarkType", "gmgn")
         if not ca_address or not ca_name:
             flash("请输入CA地址以及名称", "danger")
             return render_template("gmgn.html")
@@ -282,7 +283,17 @@ def gmgn_tool():
             holders = gmgn.fetch_top_holders(chain_id, ca_address)
             traders = gmgn.fetch_top_traders(chain_id, ca_address)
             result = gmgn.merge_and_format(holders, traders, ca_name)
-            result_json_str = json.dumps(result, ensure_ascii=False, indent=2)
+            if remark_type == "gmgn":
+                result_json_str = json.dumps(result, ensure_ascii=False, indent=2)
+            else:  # okx备注
+                # 只输出地址:备注,地址,备注,...格式
+                okx_lines = []
+                for item in result:
+                    addr = item.get("address", "")
+                    name = item.get("name", "")
+                    if addr and name:
+                        okx_lines.append(f"{addr}:{name}")
+                result_json_str = ",".join(okx_lines)
         except Exception as e:
             flash(f"查询失败: {str(e)}", "danger")
     return render_template("gmgn.html", result_json_str=result_json_str)

@@ -27,7 +27,7 @@ def fetch_top_holders(chain_id, token_address):
         elif "diamondHands" in tags_flat and "suspectedPhishingWallet" not in tags_flat:
             emoji = "💎"
         elif "suspectedPhishingWallet" in tags_flat and "diamondHands" in tags_flat:
-            emoji = "🐟"
+            emoji = "🐠"
         holders.append({
             "address": item.get("holderWalletAddress"),
             "pic": emoji,
@@ -59,7 +59,7 @@ def fetch_top_traders(chain_id, token_address):
         elif "diamondHands" in tags_flat and "suspectedPhishingWallet" not in tags_flat:
             emoji = "💎"
         elif "suspectedPhishingWallet" in tags_flat and "diamondHands" in tags_flat:
-            emoji = "🐟"
+            emoji = "🐠"
         profit_k = round(float(item.get("realizedProfit", 0)) / 1000, 2)
         traders.append({
             "address": item.get("holderWalletAddress"),
