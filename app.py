@@ -4,6 +4,9 @@ from utils import fetch_data, export_to_excel
 import time
 import pandas as pd
 import json
+# 新增的模块
+from modules import holder, parse_transactions, estimate_costs, cluster_addresses
+import os
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # 设置安全的密钥
@@ -11,6 +14,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 @app.route("/")
 def index():
+    """首页"""
     return render_template("index.html")
 
 @app.route("/top_earners", methods=["GET", "POST"])
@@ -327,6 +331,147 @@ def gmgn_tool():
         except Exception as e:
             flash(f"查询失败: {str(e)}", "danger")
     return render_template("gmgn.html", result_json_str=result_json_str)
+
+# 新增的路由
+@app.route("/solana_analysis", methods=["GET", "POST"])
+def solana_analysis():
+    if request.method == "POST":
+        token_address = request.form.get("tokenAddress", "").strip()
+        chain_id = request.form.get("chainId", "501").strip()
+        top_n = int(request.form.get("topN", 50))
+        helius_api_key = request.form.get("heliusApiKey", "").strip()
+        token_id = request.form.get("tokenId", "").strip()  # CoinGecko token ID
+        
+        if not token_address:
+            flash("请输入Token地址", "danger")
+            return render_template("solana_analysis.html")
+        
+        try:
+            # 步骤1: 获取Top Holders
+            print("正在获取Top Holders...")
+            timestamp = int(time.time() * 1000)
+            holders_df = holder.get_all_holders(chain_id, token_address, timestamp, top_n)
+            
+            if holders_df.empty:
+                flash("未找到持仓数据", "warning")
+                return render_template("solana_analysis.html")
+            
+            # 保存基础数据
+            session['solana_holders'] = holders_df.to_dict()
+            session['solana_params'] = {
+                'tokenAddress': token_address,
+                'chainId': chain_id,
+                'topN': top_n,
+                'tokenId': token_id
+            }
+            
+            results = {
+                'holders_count': len(holders_df),
+                'total_percentage': holders_df['percentage'].sum()
+            }
+            
+            # 步骤2: 解析交易（如果提供了Helius API密钥）
+            if helius_api_key:
+                print("正在解析交易...")
+                events_df = parse_transactions.batch_analyze_holders(
+                    holders_df, helius_api_key, token_address
+                )
+                
+                if not events_df.empty:
+                    session['solana_events'] = events_df.to_dict()
+                    results['transactions_count'] = len(events_df)
+                    results['unique_addresses'] = events_df['address'].nunique()
+                    
+                    # 步骤3: 成本估算（如果提供了CoinGecko token ID）
+                    if token_id:
+                        print("正在估算成本...")
+                        pnl_df = estimate_costs.analyze_holder_profitability(
+                            holders_df, events_df, token_id
+                        )
+                        
+                        if not pnl_df.empty:
+                            session['solana_pnl'] = pnl_df.to_dict()
+                            results['avg_multiplier'] = pnl_df['multiplier'].mean()
+                            results['profitable_addresses'] = (pnl_df['unrealized_pnl_usd'] > 0).sum()
+                    
+                    # 步骤4: 聚类分析
+                    print("正在进行聚类分析...")
+                    output_dir = os.path.join('static', 'temp')
+                    cluster_results = cluster_addresses.full_cluster_analysis(
+                        events_df, holders_df, output_dir
+                    )
+                    
+                    if cluster_results:
+                        session['solana_clusters'] = {
+                            k: v.to_dict() if hasattr(v, 'to_dict') else v 
+                            for k, v in cluster_results.items()
+                        }
+                        
+                        if 'transfer_stats' in cluster_results:
+                            results['cluster_count'] = len(cluster_results['transfer_stats'])
+            
+            return render_template("solana_analysis.html", results=results)
+            
+        except Exception as e:
+            flash(f"分析失败: {str(e)}", "danger")
+            return render_template("solana_analysis.html")
+    
+    return render_template("solana_analysis.html")
+
+@app.route("/download_solana_data/<data_type>")
+def download_solana_data(data_type):
+    """下载Solana分析数据"""
+    try:
+        if data_type == 'holders' and 'solana_holders' in session:
+            df = pd.DataFrame(session['solana_holders'])
+            return export_to_excel(df, f"solana_holders_{int(time.time())}")
+        
+        elif data_type == 'events' and 'solana_events' in session:
+            df = pd.DataFrame(session['solana_events'])
+            return export_to_excel(df, f"solana_events_{int(time.time())}")
+        
+        elif data_type == 'pnl' and 'solana_pnl' in session:
+            df = pd.DataFrame(session['solana_pnl'])
+            return export_to_excel(df, f"solana_pnl_{int(time.time())}")
+        
+        elif data_type == 'clusters' and 'solana_clusters' in session:
+            cluster_data = session['solana_clusters']
+            if 'transfer_clusters' in cluster_data:
+                df = pd.DataFrame(cluster_data['transfer_clusters'])
+                return export_to_excel(df, f"solana_clusters_{int(time.time())}")
+        
+        flash("数据不存在或已过期", "warning")
+        return redirect(url_for('solana_analysis'))
+        
+    except Exception as e:
+        flash(f"下载失败: {str(e)}", "danger")
+        return redirect(url_for('solana_analysis'))
+
+@app.route("/whale_flow")
+def whale_flow():
+    """庄家资金流动 - 待开发"""
+    return render_template("coming_soon.html", 
+                         feature_name="庄家资金流动",
+                         description="追踪大户资金进出，分析市场操控行为和资金流向",
+                         expected_features=[
+                             "大额转账实时监控",
+                             "资金流向可视化",
+                             "异常交易预警",
+                             "庄家行为分析"
+                         ])
+
+@app.route("/address_monitor")
+def address_monitor():
+    """地址实时监控 - 待开发"""
+    return render_template("coming_soon.html",
+                         feature_name="地址实时监控", 
+                         description="实时监控重要地址的交易活动，及时获取投资信号",
+                         expected_features=[
+                             "多地址批量监控",
+                             "交易实时推送",
+                             "自定义监控规则",
+                             "历史行为分析"
+                         ])
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

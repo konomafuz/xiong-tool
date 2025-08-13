@@ -3,157 +3,195 @@
 {% block title %}Smart Money Tracker - 首页{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <!-- 顶部标题区域 -->
-    <div class="text-center mb-5">
-        <h1 class="display-4 fw-bold text-gradient-primary mb-3">Smart Money Tracker</h1>
-        <p class="lead text-muted mb-4">追踪区块链上的聪明钱行为，发现高收益交易策略</p>
+<div class="container">
+    <div class="jumbotron bg-primary text-white text-center py-5 mb-5 rounded">
+        <h1 class="display-4">Smart Money Tracker</h1>
+        <p class="lead">专业的链上数据分析工具，助您发现聪明钱的投资机会</p>
+        <hr class="my-4 bg-white">
+        <p>实时追踪、分析并洞察区块链上的资金流动</p>
     </div>
-    
-    <!-- 功能卡片区域 -->
-    <div class="row g-4 mb-5">
+
+    <div class="row g-4">
+        <!-- 第一行 - 现有功能 -->
         <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm hover-shadow transition-all">
-                <div class="card-body text-center p-4">
-                    <div class="icon-circle bg-primary-light text-primary mb-4 mx-auto">
-                        <i class="fas fa-trophy fs-3"></i>
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-trophy text-warning" style="font-size: 3rem;"></i>
                     </div>
-                    <h3 class="h4 mb-3">Top盈利地址</h3>
-                    <p class="text-muted mb-4">发现特定代币上盈利最高的交易者地址，分析他们的交易策略和持仓。</p>
-                    <a href="/top_earners" class="btn btn-sm btn-outline-primary stretched-link">开始探索</a>
+                    <h5 class="card-title">Top盈利地址</h5>
+                    <p class="card-text">查询指定代币的顶级盈利交易者，分析聪明钱的投资策略</p>
+                    <a href="/top_earners" class="btn btn-primary">开始查询</a>
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm hover-shadow transition-all">
-                <div class="card-body text-center p-4">
-                    <div class="icon-circle bg-warning-light text-warning mb-4 mx-auto">
-                        <i class="fas fa-user-secret fs-3"></i>
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-chart-line text-info" style="font-size: 3rem;"></i>
                     </div>
-                    <h3 class="h4 mb-3">聪明钱小号</h3>
-                    <p class="text-muted mb-4">识别可能属于同一实体的多个地址，发现隐藏的交易模式。</p>
-                    <a href="/smart_accounts" class="btn btn-sm btn-outline-primary stretched-link">开始分析</a>
+                    <h5 class="card-title">Solana Token 分析</h5>
+                    <p class="card-text">深度分析Solana代币的持仓分布、交易记录和地址聚类</p>
+                    <a href="/solana_analysis" class="btn btn-info">开始分析</a>
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm hover-shadow transition-all">
-                <div class="card-body text-center p-4">
-                    <div class="icon-circle bg-success-light text-success mb-4 mx-auto">
-                        <i class="fas fa-magic fs-3"></i>
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-globe text-success" style="font-size: 3rem;"></i>
                     </div>
-                    <h3 class="h4 mb-3">gmgn/OKX备注工具</h3>
-                    <p class="text-muted mb-4">输入CA地址和名称，获取Top持仓和盈利分析结果，并自动备注。</p>
-                    <a href="{{ url_for('gmgn_tool') }}" class="btn btn-sm btn-success stretched-link">进入工具</a>
+                    <h5 class="card-title">地址备注工具</h5>
+                    <p class="card-text">用于给GMGN/OKX的钱包进行批量备注</p>
+                    <a href="/gmgn" class="btn btn-success">查看数据</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第二行 - 新增功能 -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-info">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-project-diagram text-primary" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title">地址集群分析</h5>
+                    <p class="card-text">分析关联地址网络，识别可能的同一实体控制的地址群</p>
+                    <a href="/smart_accounts" class="btn btn-outline-primary">
+                        <i class="fas fa-network-wired me-2"></i>开始分析
+                    </a>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        <i class="fas fa-check-circle text-success me-1"></i>已完善
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-warning">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-water text-warning" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title">庄家资金流动</h5>
+                    <p class="card-text">追踪大户资金进出，分析市场操控行为和资金流向</p>
+                    <a href="/whale_flow" class="btn btn-outline-warning disabled" disabled>
+                        <i class="fas fa-cog me-2"></i>开发中
+                    </a>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        <i class="fas fa-clock text-warning me-1"></i>待完善
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-danger">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-eye text-danger" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title">地址实时监控</h5>
+                    <p class="card-text">实时监控重要地址的交易活动，及时获取投资信号</p>
+                    <a href="/address_monitor" class="btn btn-outline-danger disabled" disabled>
+                        <i class="fas fa-cog me-2"></i>开发中
+                    </a>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        <i class="fas fa-clock text-danger me-1"></i>待完善
+                    </small>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- 使用指南区域 -->
-    <div class="row justify-content-center mb-5">
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-primary text-white py-3">
-                    <h2 class="h5 mb-0"><i class="fas fa-lightbulb me-2"></i>如何使用本工具</h2>
-                </div>
-                <div class="card-body p-4">
-                    <div class="list-group list-group-flush">
-                        <div class="list-group-item border-0 py-3">
-                            <div class="d-flex align-items-start">
-                                <div class="me-3 text-primary">
-                                    <i class="fas fa-chevron-right"></i>
-                                </div>
-                                <div>
-                                    <h5 class="mb-1">Top盈利地址</h5>
-                                    <p class="mb-0 text-muted">输入代币合约地址，查看该代币上盈利最高的交易者</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="list-group-item border-0 py-3">
-                            <div class="d-flex align-items-start">
-                                <div class="me-3 text-primary">
-                                    <i class="fas fa-chevron-right"></i>
-                                </div>
-                                <div>
-                                    <h5 class="mb-1">聪明钱小号</h5>
-                                    <p class="mb-0 text-muted">输入目标地址，分析可能属于同一实体的关联地址</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="list-group-item border-0 py-3">
-                            <div class="d-flex align-items-start">
-                                <div class="me-3 text-primary">
-                                    <i class="fas fa-chevron-right"></i>
-                                </div>
-                                <div>
-                                    <h5 class="mb-1">地址详情</h5>
-                                    <p class="mb-0 text-muted">点击任何地址可查看其详细交易历史和持仓情况</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="list-group-item border-0 py-3">
-                            <div class="d-flex align-items-start">
-                                <div class="me-3 text-primary">
-                                    <i class="fas fa-chevron-right"></i>
-                                </div>
-                                <div>
-                                    <h5 class="mb-1">数据导出</h5>
-                                    <p class="mb-0 text-muted">所有结果均可导出为Excel文件进行深入分析</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
+    <!-- 功能特点介绍 -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3 class="text-center mb-4">平台特色</h3>
+        </div>
+        <div class="col-md-3 text-center">
+            <i class="fas fa-lightning-bolt text-primary mb-3" style="font-size: 2rem;"></i>
+            <h5>实时数据</h5>
+            <p class="text-muted">链上数据实时更新，捕捉市场瞬息万变</p>
+        </div>
+        <div class="col-md-3 text-center">
+            <i class="fas fa-brain text-success mb-3" style="font-size: 2rem;"></i>
+            <h5>智能分析</h5>
+            <p class="text-muted">AI驱动的数据分析，发现隐藏的投资机会</p>
+        </div>
+        <div class="col-md-3 text-center">
+            <i class="fas fa-shield-alt text-info mb-3" style="font-size: 2rem;"></i>
+            <h5>安全可靠</h5>
+            <p class="text-muted">数据来源权威，分析结果准确可信</p>
+        </div>
+        <div class="col-md-3 text-center">
+            <i class="fas fa-download text-warning mb-3" style="font-size: 2rem;"></i>
+            <h5>数据导出</h5>
+            <p class="text-muted">支持多格式数据导出，便于深度研究</p>
         </div>
     </div>
-    
+
+    <!-- 使用统计 -->
+    <div class="row mt-5 bg-light p-4 rounded">
+        <div class="col-12 text-center">
+            <h4 class="mb-4">平台数据</h4>
+        </div>
+        <div class="col-md-3 text-center">
+            <h3 class="text-primary">10K+</h3>
+            <p class="text-muted">分析地址</p>
+        </div>
+        <div class="col-md-3 text-center">
+            <h3 class="text-success">500+</h3>
+            <p class="text-muted">代币追踪</p>
+        </div>
+        <div class="col-md-3 text-center">
+            <h3 class="text-info">1M+</h3>
+            <p class="text-muted">交易记录</p>
+        </div>
+        <div class="col-md-3 text-center">
+            <h3 class="text-warning">99.9%</h3>
+            <p class="text-muted">数据准确率</p>
+        </div>
+    </div>
 </div>
 
 <style>
-    /* 自定义样式 */
-    .text-gradient-primary {
-        background: linear-gradient(90deg, #4e73df 0%, #224abe 100%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    
-    .icon-circle {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .bg-primary-light {
-        background-color: rgba(78, 115, 223, 0.1);
-    }
-    
-    .bg-warning-light {
-        background-color: rgba(243, 184, 72, 0.1);
-    }
-    
-    .bg-success-light {
-        background-color: rgba(28, 200, 138, 0.1);
-    }
-    
-    .hover-shadow {
-        transition: all 0.3s ease;
-    }
-    
-    .hover-shadow:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1) !important;
-    }
-    
-    .transition-all {
-        transition: all 0.3s ease;
-    }
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.jumbotron {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.card-footer {
+    border-top: 1px solid rgba(0,0,0,.125);
+}
+
+.border-info {
+    border-color: #17a2b8 !important;
+}
+
+.border-warning {
+    border-color: #ffc107 !important;
+}
+
+.border-danger {
+    border-color: #dc3545 !important;
+}
 </style>
 {% endblock %}

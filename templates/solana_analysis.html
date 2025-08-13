@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Solana Token 分析 - Smart Money Tracker{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h3 class="mb-0"><i class="fas fa-chart-line me-2"></i>Solana Token Top Holders 链上分析</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Token 合约地址</label>
+                        <input type="text" class="form-control" name="tokenAddress" 
+                               placeholder="Solana SPL Token 地址" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">链ID</label>
+                        <input type="text" class="form-control" name="chainId" value="501">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Top N</label>
+                        <input type="number" class="form-control" name="topN" value="50" min="1" max="200">
+                    </div>
+                </div>
+                
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Helius API Key (可选)</label>
+                        <input type="text" class="form-control" name="heliusApiKey" 
+                               placeholder="用于交易解析和聚类分析">
+                        <small class="text-muted">可在 helius.xyz 免费申请</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">CoinGecko Token ID (可选)</label>
+                        <input type="text" class="form-control" name="tokenId" 
+                               placeholder="用于价格查询和盈亏计算">
+                        <small class="text-muted">如: bitcoin, ethereum</small>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i>开始分析
+                </button>
+            </form>
+
+            {% if results %}
+            <div class="alert alert-success mt-4">
+                <h5><i class="fas fa-check-circle me-2"></i>分析完成</h5>
+                <ul class="mb-0">
+                    <li>找到 {{ results.holders_count }} 个Top Holders</li>
+                    <li>总持仓占比: {{ "%.2f"|format(results.total_percentage) }}%</li>
+                    {% if results.transactions_count %}
+                    <li>解析了 {{ results.transactions_count }} 笔交易</li>
+                    <li>涉及 {{ results.unique_addresses }} 个地址</li>
+                    {% endif %}
+                    {% if results.avg_multiplier %}
+                    <li>平均盈利倍数: {{ "%.2f"|format(results.avg_multiplier) }}x</li>
+                    <li>盈利地址数: {{ results.profitable_addresses }}</li>
+                    {% endif %}
+                    {% if results.cluster_count %}
+                    <li>识别出 {{ results.cluster_count }} 个地址簇</li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-3">
+                    <a href="/download_solana_data/holders" class="btn btn-success w-100 mb-2">
+                        <i class="fas fa-users me-2"></i>下载 Holders
+                    </a>
+                </div>
+                {% if results.transactions_count %}
+                <div class="col-md-3">
+                    <a href="/download_solana_data/events" class="btn btn-success w-100 mb-2">
+                        <i class="fas fa-exchange-alt me-2"></i>下载 交易事件
+                    </a>
+                </div>
+                {% endif %}
+                {% if results.avg_multiplier %}
+                <div class="col-md-3">
+                    <a href="/download_solana_data/pnl" class="btn btn-success w-100 mb-2">
+                        <i class="fas fa-chart-line me-2"></i>下载 盈亏分析
+                    </a>
+                </div>
+                {% endif %}
+                {% if results.cluster_count %}
+                <div class="col-md-3">
+                    <a href="/download_solana_data/clusters" class="btn btn-success w-100 mb-2">
+                        <i class="fas fa-project-diagram me-2"></i>下载 聚类结果
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if results.cluster_count %}
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <img src="/static/temp/transfer_clusters.png" class="img-fluid" alt="转账聚类图">
+                </div>
+                <div class="col-md-6">
+                    <img src="/static/temp/interaction_clusters.png" class="img-fluid" alt="交互聚类图">
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

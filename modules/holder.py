@@ -1,7 +1,7 @@
-import requests
 import pandas as pd
-import time
 import requests
+import time
+from utils import fetch_data
 
 
 def get_all_holders(chain_id, token_address, timestamp, top_n):
@@ -23,56 +23,26 @@ def get_all_holders(chain_id, token_address, timestamp, top_n):
     
     try:
         while len(holders) < top_n and page_count < max_pages:
-            # 发送API请求
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-            }
-            response = requests.get(url, params=params, headers=headers, timeout=10)
-            # 检查HTTP状态
-            if response.status_code != 200:
-                print(f"API响应错误: HTTP {response.status_code}")
+            response = fetch_data(url, params)
+            if not response or 'data' not in response:
                 break
                 
-            # 尝试解析JSON
-            try:
-                json_data = response.json()
-            except ValueError:
-                print("JSON解析失败")
+            page_data = response['data']
+            if not page_data:
                 break
                 
-            # 检查API返回的数据结构
-            if not isinstance(json_data, dict) or not json_data:
-                print("API返回了非预期的数据结构")
-                break
-                
-            # 处理API返回的错误代码
-            if json_data.get("code") != 0:
-                print(f"API错误: 代码 {json_data.get('code')}, 消息: {json_data.get('msg')}")
-                break
-                
-            # 获取持有者数据
-            data = json_data.get("data", {})
-            new_holders = data.get("holderRankingList", [])
+            holders.extend(page_data)
             
-            if not new_holders:
-                print(f"没有更多持仓数据，时间戳: {timestamp}")
+            # 如果这一页的数据少于limit，说明已经到最后一页
+            if len(page_data) < params['limit']:
                 break
                 
-            holders.extend(new_holders)
-            params["offset"] += len(new_holders)
+            # 更新offset到下一页
+            params['offset'] += params['limit']
             page_count += 1
             
-            # 检查是否还有更多数据
-            if len(new_holders) < params["limit"]:
-                break
-                
             # 避免请求过快
-            time.sleep(1)
-            
-            # 动态调整limit确保不超过top_n
-            remaining = top_n - len(holders)
-            if remaining < params["limit"]:
-                params["limit"] = remaining
+            time.sleep(0.5)
     
     except Exception as e:
         print(f"请求失败: {str(e)}")
@@ -91,10 +61,30 @@ def get_all_holders(chain_id, token_address, timestamp, top_n):
         
         # 安全转换为数值类型
         df["balance"] = pd.to_numeric(df["balance"], errors="coerce")
+        df["percentage"] = pd.to_numeric(df["percentage"], errors="coerce")
         
         # 确保不超过请求数量
-        return df.head(top_n)
+        df = df.head(top_n)
+        
+        return df
         
     except KeyError as e:
         print(f"数据字段缺失: {str(e)}")
+        return pd.DataFrame()
+
+def get_multiple_snapshots(chain_id, token_address, timestamps, top_n=50):
+    """获取多个时间点的持仓快照"""
+    all_snapshots = []
+    
+    for timestamp in timestamps:
+        df = get_all_holders(chain_id, token_address, timestamp, top_n)
+        if not df.empty:
+            df['timestamp'] = timestamp
+            df['snapshot_time'] = pd.to_datetime(timestamp, unit='ms')
+            all_snapshots.append(df)
+        time.sleep(1)  # 避免请求过快
+    
+    if all_snapshots:
+        return pd.concat(all_snapshots, ignore_index=True)
+    else:
         return pd.DataFrame()
