@@ -7,7 +7,7 @@ import pandas as pd
 import time
 
 
-def fetch_top_traders(token_contract_address: str, chain_id=501, max_records=1000):
+def fetch_top_traders(token_address, chain_id="", limit=100):
     """获取指定代币的顶级盈利交易者（分页获取所有记录）"""
     all_traders = []
     page_size = 100  # 每次请求100条记录
@@ -17,7 +17,7 @@ def fetch_top_traders(token_contract_address: str, chain_id=501, max_records=100
         url = "https://web3.okx.com/priapi/v1/dx/market/v2/pnl/top-trader/ranking-list"
         params = {
             "chainId": chain_id,
-            "tokenContractAddress": token_contract_address,
+            "tokenContractAddress": token_address,
             "offset": offset,
             "limit": page_size,
             "t": int(time.time() * 1000)  # 添加时间戳避免缓存
@@ -35,7 +35,7 @@ def fetch_top_traders(token_contract_address: str, chain_id=501, max_records=100
         offset += len(traders)
         
         # 停止条件：达到最大记录数或最后一页
-        if len(traders) < page_size or len(all_traders) >= max_records:
+        if len(traders) < page_size or len(all_traders) >= limit:
             break
     
     return all_traders

@@ -11,13 +11,23 @@
         <div class="card-body">
             <form method="POST">
                 <div class="row g-3 mb-4">
-                    <div class="col-md-8">
+                    <div class="col-md-4">
+                        <label for="chainId" class="form-label">链ID</label>
+                        <input type="text" class="form-control" id="chainId" name="chainId" 
+                               placeholder="请输入链ID" value="{{ chain_id or '' }}">
+                    </div>
+                    <div class="col-md-4">
                         <label for="tokenAddress" class="form-label">代币合约地址</label>
                         <input type="text" class="form-control" id="tokenAddress" name="tokenAddress" 
                                placeholder="请输入合约地址" value="{{ token or '' }}" required>
                         <div class="form-text">
                             示例: HtTYHz1Kf3rrQo6AqDLmss7gq5WrkWAaXn3tupUZbonk
                         </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="limit" class="form-label">查询数量</label>
+                        <input type="number" class="form-control" id="limit" name="limit" 
+                               placeholder="请输入查询数量" value="{{ limit or 100 }}" min="1" max="1000">
                     </div>
                     <div class="col-md-4 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
@@ -35,6 +45,8 @@
                     </div>
                     <form method="POST" action="/download_top_earners">
                         <input type="hidden" name="tokenAddress" value="{{ token }}">
+                        <input type="hidden" name="chainId" value="{{ chain_id }}">
+                        <input type="hidden" name="limit" value="{{ limit or 100 }}">
                         <button class="btn btn-success">
                             <i class="fas fa-file-excel me-2"></i>导出完整数据
                         </button>

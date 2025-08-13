@@ -15,17 +15,28 @@ def index():
 
 @app.route("/top_earners", methods=["GET", "POST"])
 def top_earners_view():
+    chain_id = request.args.get("chainId", request.form.get("chainId", ""))
+    chain_id = chain_id.strip()
     token_address = request.args.get("tokenAddress", request.form.get("tokenAddress", ""))
     token_address = token_address.strip()
-    
-    if request.method == "POST" and token_address:
+    # 新增limit参数，默认100
+    limit = request.args.get("limit", request.form.get("limit", "100"))
+    try:
+        limit = int(limit)
+    except Exception:
+        limit = 100
+
+    if request.method == "POST" and token_address and chain_id:
         try:
-            traders = top_earners.fetch_top_traders(token_address)
+            # 传递limit给数据获取函数
+            traders = top_earners.fetch_top_traders(token_address, chain_id=chain_id, limit=limit)
             df = top_earners.prepare_traders_data(traders)
             
             # 保存完整数据到session
             session['traders_data'] = df.to_dict()
             session['token_address'] = token_address
+            session['chain_id'] = chain_id
+            session['limit'] = limit
             
             # 添加地址超链接
             if not df.empty and "holderWalletAddress" in df.columns:
@@ -60,18 +71,21 @@ def top_earners_view():
                 render_links=True
             ) if not display_df.empty else ""
             
+            # 渲染模板时传递limit
             return render_template(
                 "top_earners.html", 
                 table=table_html, 
                 token=token_address, 
+                chain_id=chain_id,
+                limit=limit,
                 record_count=len(df)
             )
         except Exception as e:
             flash(f"查询失败: {str(e)}", "danger")
             return redirect(url_for('top_earners_view'))
-    
-    # 从session恢复数据（页面刷新时）
-    if 'traders_data' in session and session.get('token_address') == token_address:
+
+    # session恢复时也要传递limit
+    if 'traders_data' in session and session.get('token_address') == token_address and session.get('chain_id') == chain_id and session.get('limit', 100) == limit:
         df = pd.DataFrame(session['traders_data'])
         
         if not df.empty:
@@ -95,26 +109,43 @@ def top_earners_view():
                 "top_earners.html", 
                 table=table_html, 
                 token=token_address, 
+                chain_id=chain_id,
+                limit=limit,
                 record_count=len(df)
             )
     
-    return render_template("top_earners.html", token=token_address)
+    return render_template("top_earners.html", token=token_address, chain_id=chain_id, limit=limit)
 
-@app.route("/download_top_earners", methods=["POST"])
+@app.route("/download_top_earners", methods=["GET", "POST"])
 def download_top_earners():
+    if request.method != "POST":
+        # 对于GET请求，直接返回404
+        return "Not Found", 404
+
     token_address = request.form.get("tokenAddress", "").strip()
-    if not token_address:
-        flash("缺少代币地址", "danger")
-        return redirect(url_for('top_earners_view'))
-    
+    chain_id = request.form.get("chainId", "").strip()
+    limit = request.form.get("limit", "100").strip()
     try:
-        # 优先使用session中的数据
-        if 'traders_data' in session and session.get('token_address') == token_address:
+        limit = int(limit)
+    except Exception:
+        limit = 100
+
+    if not token_address or not chain_id:
+        flash("缺少代币地址或链ID", "danger")
+        return redirect(url_for('top_earners_view'))
+
+    try:
+        if (
+            'traders_data' in session and
+            session.get('token_address') == token_address and
+            session.get('chain_id') == chain_id and
+            session.get('limit', 100) == limit
+        ):
+            import pandas as pd
             df = pd.DataFrame(session['traders_data'])
         else:
-            traders = top_earners.fetch_top_traders(token_address)
+            traders = top_earners.fetch_top_traders(token_address, chain_id=chain_id, limit=limit)
             df = top_earners.prepare_traders_data(traders)
-        
         return export_to_excel(df, f"top_traders_{token_address[:10]}")
     except Exception as e:
         flash(f"导出失败: {str(e)}", "danger")

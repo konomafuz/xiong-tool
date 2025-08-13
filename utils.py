@@ -5,12 +5,12 @@ import pandas as pd
 from io import BytesIO
 from collections import defaultdict
 
-def fetch_data(url, params=None, method='GET', json_data=None):
+def fetch_data(url, params=None, method='GET', json_data=None, max_retries=3, timeout=10):
     """通用数据获取函数，带错误处理和重试机制"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
-    retries = 3
+    retries = max_retries
     for attempt in range(retries):
         try:
             if method == 'GET':
@@ -18,7 +18,7 @@ def fetch_data(url, params=None, method='GET', json_data=None):
                     url, 
                     headers=headers,
                     params=params,
-                    timeout=15,
+                    timeout=timeout,
                     verify=False
                 )
             else:  # POST
@@ -26,7 +26,7 @@ def fetch_data(url, params=None, method='GET', json_data=None):
                     url, 
                     headers=headers,
                     json=json_data,
-                    timeout=15,
+                    timeout=timeout,
                     verify=False
                 )
                 
@@ -42,7 +42,7 @@ def fetch_data(url, params=None, method='GET', json_data=None):
             
         except requests.exceptions.RequestException as e:
             print(f"请求失败 (尝试 {attempt+1}/{retries}): {e}")
-            time.sleep(2)
+            time.sleep(2 * (attempt + 1))  # 递增延时
         except ValueError as e:
             print(f"JSON解析失败: {e}")
             return None
