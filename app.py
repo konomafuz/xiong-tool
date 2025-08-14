@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, send_file, redirect, url_for, flash
+from flask import Flask, render_template, request, session, send_file, redirect, url_for, flash, jsonify
 from modules import top_earners, smart_accounts, gmgn
 from utils import fetch_data, export_to_excel
 import time
@@ -306,21 +306,55 @@ def download_smart_accounts():
 @app.route("/gmgn", methods=["GET", "POST"])
 def gmgn_tool():
     result_json_str = None
+    result_stats = None
+    
     if request.method == "POST":
         ca_address = request.form.get("caAddress", "").strip()
         ca_name = request.form.get("caName", "").strip()
         chain_id = request.form.get("chainId", "501").strip()
         remark_type = request.form.get("remarkType", "gmgn")
+        
+        # 获取数量参数，默认100，最高1000
+        holder_count = request.form.get("holderCount", "100")
+        trader_count = request.form.get("traderCount", "100")
+        
+        try:
+            holder_count = max(1, min(1000, int(holder_count)))
+        except ValueError:
+            holder_count = 100
+            
+        try:
+            trader_count = max(1, min(1000, int(trader_count)))
+        except ValueError:
+            trader_count = 100
+        
         if not ca_address or not ca_name:
             flash("请输入CA地址以及名称", "danger")
             return render_template("gmgn.html")
+            
         try:
-            holders = gmgn.fetch_top_holders(chain_id, ca_address)
-            traders = gmgn.fetch_top_traders(chain_id, ca_address)
+            print(f"🎯 开始获取备注数据...")
+            print(f"📊 Holders数量: {holder_count}, Traders数量: {trader_count}")
+            
+            # 获取数据
+            holders = gmgn.fetch_top_holders(chain_id, ca_address, limit=holder_count)
+            traders = gmgn.fetch_top_traders(chain_id, ca_address, limit=trader_count)
+            
+            # 合并和格式化
             result = gmgn.merge_and_format(holders, traders, ca_name)
+            
+            # 生成统计信息
+            result_stats = {
+                'total_addresses': len(result),
+                'holder_count': len(holders) if holders else 0,
+                'trader_count': len(traders) if traders else 0,
+                'unique_addresses': len(result)  # merge_and_format已经去重了
+            }
+            
+            # 格式化输出
             if remark_type == "gmgn":
                 result_json_str = json.dumps(result, ensure_ascii=False, indent=2)
-            else:  # okx备注
+            else:  # okx格式
                 okx_lines = []
                 for item in result:
                     addr = item.get("address", "")
@@ -328,9 +362,16 @@ def gmgn_tool():
                     if addr and name:
                         okx_lines.append(f"{addr}:{name}")
                 result_json_str = ",".join(okx_lines)
+            
+            print(f"🎉 备注数据生成完成! 总计 {len(result)} 个地址")
+            
         except Exception as e:
+            print(f"❌ 查询失败: {str(e)}")
             flash(f"查询失败: {str(e)}", "danger")
-    return render_template("gmgn.html", result_json_str=result_json_str)
+    
+    return render_template("gmgn.html", 
+                         result_json_str=result_json_str,
+                         result_stats=result_stats)
 
 # 新增的路由
 @app.route("/solana_analysis", methods=["GET", "POST"])
@@ -473,5 +514,62 @@ def address_monitor():
                              "历史行为分析"
                          ])
 
+@app.route("/smart_wallet", methods=["GET", "POST"])
+def smart_wallet_analysis():
+    result = None
+    
+    if request.method == "POST":
+        token_address = request.form.get("tokenAddress", "").strip()
+        token_name = request.form.get("tokenName", "").strip()
+        chain_id = request.form.get("chainId", "501").strip()
+        limit = int(request.form.get("limit", 300))
+        
+        # 聪明钱包条件
+        smart_criteria = {
+            "win_rate_1m": int(request.form.get("winRate1m", 35)),
+            "win_rate_3m": int(request.form.get("winRate3m", 30)),
+            "min_profit": int(request.form.get("minProfit", 10000)),
+            "high_return_min": int(request.form.get("highReturnMin", 1)),
+            "medium_return_min": int(request.form.get("mediumReturnMin", 2)),
+            "gmgn_win_rate_1m": 35,
+            "gmgn_win_rate_all": 30,
+            "min_followers": 100
+        }
+        
+        # 阴谋钱包条件
+        conspiracy_criteria = {
+            "empty_days": int(request.form.get("emptyDays", 10))
+        }
+        
+        if not token_address or not token_name:
+            flash("请输入代币地址和名称", "danger")
+            return render_template("smart_wallet.html")
+            
+        try:
+            from modules import smart_wallet
+            result = smart_wallet.analyze_wallets(
+                chain_id, token_address, token_name, limit,
+                smart_criteria, conspiracy_criteria
+            )
+            
+            # 保存结果到session
+            session['smart_wallet_results'] = result
+            flash("分析完成！", "success")
+            
+        except Exception as e:
+            flash(f"分析失败: {str(e)}", "danger")
+    
+    return render_template("smart_wallet.html", results=result)
+
+# 如果需要实时进度，可以添加这个API端点
+@app.route("/api/smart_wallet_progress")
+def smart_wallet_progress():
+    # 这里可以从session或数据库获取进度信息
+    progress = session.get('analysis_progress', 0)
+    return jsonify({
+        "progress": progress,
+        "status": "analyzing" if progress < 100 else "completed"
+    })
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)

@@ -21,6 +21,37 @@
             <option value="gmgn">gmgn备注</option>
         </select>
     </div>
+    <!-- 数量设置部分更新 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label for="holderCount" class="pixel-label">Top Holders 数量</label>
+            <input 
+                type="number" 
+                class="pixel-input" 
+                id="holderCount" 
+                name="holderCount" 
+                min="1" 
+                max="1000" 
+                value="{{ request.form.get('holderCount', '100') }}"
+                placeholder="获取前N个持仓地址"
+            >
+            <small class="pixel-help-text">范围: 1-1000，默认100</small>
+        </div>
+        <div class="col-md-6">
+            <label for="traderCount" class="pixel-label">Top Traders 数量</label>
+            <input 
+                type="number" 
+                class="pixel-input" 
+                id="traderCount" 
+                name="traderCount" 
+                min="1" 
+                max="1000" 
+                value="{{ request.form.get('traderCount', '100') }}"
+                placeholder="获取前N个交易者"
+            >
+            <small class="pixel-help-text">范围: 1-1000，默认100</small>
+        </div>
+    </div>
     <button type="submit" class="btn btn-primary">查询</button>
 </form>
 {% if result_json_str %}

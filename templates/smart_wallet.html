@@ -1,0 +1,1126 @@
+{% extends "base.html" %}
+
+{% block title %}ArcticFox Labs - 聪明钱包分析{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 紫粉色主题现代化设计 */
+.smart-wallet-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    padding: 2rem 0;
+    position: relative;
+}
+
+.smart-wallet-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 20% 80%, rgba(147, 51, 234, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.3) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.main-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px rgba(147, 51, 234, 0.15), 
+                0 8px 32px rgba(236, 72, 153, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    overflow: hidden;
+    position: relative;
+}
+
+.card-header-modern {
+    background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #f97316 100%);
+    color: white;
+    padding: 3rem 2rem;
+    border-radius: 24px 24px 0 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.card-header-modern::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.15) 2px, transparent 3px),
+        radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.1) 1px, transparent 2px);
+    background-size: 30px 30px, 50px 50px;
+    animation: sparkle 8s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+    0%, 100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+}
+
+.form-section {
+    padding: 3rem 2rem;
+    background: linear-gradient(145deg, rgba(248, 250, 252, 0.7), rgba(241, 245, 249, 0.5));
+}
+
+.modern-input-group {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.modern-input {
+    width: 100%;
+    padding: 1.2rem 1.8rem;
+    border: 2px solid rgba(147, 51, 234, 0.1);
+    border-radius: 16px;
+    font-size: 1rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 4px 12px rgba(147, 51, 234, 0.05);
+}
+
+.modern-input:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1), 
+                0 8px 25px rgba(147, 51, 234, 0.15);
+    background: white;
+    transform: translateY(-2px);
+}
+
+.modern-label {
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding: 0 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.modern-select {
+    width: 100%;
+    padding: 1.2rem 1.8rem;
+    border: 2px solid rgba(147, 51, 234, 0.1);
+    border-radius: 16px;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.8);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(147, 51, 234, 0.05);
+}
+
+.modern-select:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+}
+
+.section-card {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(147, 51, 234, 0.08);
+    margin-bottom: 2rem;
+    overflow: hidden;
+    border: 1px solid rgba(147, 51, 234, 0.08);
+    backdrop-filter: blur(10px);
+}
+
+.section-header {
+    padding: 1.5rem 2rem;
+    font-weight: 700;
+    font-size: 1.2rem;
+    border-bottom: 1px solid rgba(147, 51, 234, 0.1);
+    position: relative;
+}
+
+.section-header.smart {
+    background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+    color: white;
+}
+
+.section-header.conspiracy {
+    background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+    color: white;
+}
+
+.section-body {
+    padding: 2.5rem;
+    background: rgba(248, 250, 252, 0.3);
+}
+
+.submit-btn {
+    background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #f97316 100%);
+    border: none;
+    padding: 1.2rem 4rem;
+    border-radius: 50px;
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 12px 40px rgba(139, 92, 246, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.submit-btn:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 20px 60px rgba(139, 92, 246, 0.4);
+}
+
+.submit-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.6s;
+}
+
+.submit-btn:hover::before {
+    left: 100%;
+}
+
+/* 进度条样式 */
+.progress-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    background: rgba(139, 92, 246, 0.95);
+    backdrop-filter: blur(20px);
+    display: none;
+}
+
+.progress-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 600px;
+    width: 90%;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 3rem;
+    border-radius: 24px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+}
+
+.progress-title {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 2rem;
+}
+
+.progress-bar-container {
+    background: rgba(147, 51, 234, 0.1);
+    border-radius: 50px;
+    height: 16px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #f97316 100%);
+    border-radius: 50px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.progress-text {
+    font-size: 1.2rem;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.progress-details {
+    font-size: 1rem;
+    color: #6b7280;
+}
+
+.step-indicator {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 2rem 0;
+}
+
+.step {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(147, 51, 234, 0.1);
+    color: #8b5cf6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    margin: 0 0.5rem;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 1.1rem;
+}
+
+.step.active {
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    color: white;
+    transform: scale(1.2);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+}
+
+.step.completed {
+    background: linear-gradient(135deg, #06b6d4, #10b981);
+    color: white;
+    transform: scale(1.1);
+}
+
+.step::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 60px;
+    width: 40px;
+    height: 3px;
+    background: rgba(147, 51, 234, 0.2);
+    transform: translateY(-50%);
+}
+
+.step:last-child::after {
+    display: none;
+}
+
+.step.completed::after {
+    background: linear-gradient(135deg, #06b6d4, #10b981);
+}
+
+/* 结果卡片 */
+.result-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 24px;
+    box-shadow: 0 12px 40px rgba(147, 51, 234, 0.1);
+    margin-bottom: 2rem;
+    overflow: hidden;
+    border: 1px solid rgba(147, 51, 234, 0.08);
+    backdrop-filter: blur(20px);
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    padding: 2.5rem;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(147, 51, 234, 0.08);
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(147, 51, 234, 0.08);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+.stat-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 60px rgba(147, 51, 234, 0.15);
+}
+
+.stat-number {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-label {
+    font-size: 1.1rem;
+    color: #6b7280;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.stat-card.total .stat-number { 
+    background: linear-gradient(135deg, #6b7280, #374151);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-card.smart .stat-number { 
+    background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-card.conspiracy .stat-number { 
+    background: linear-gradient(135deg, #ec4899, #f97316);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-card.other .stat-number { 
+    background: linear-gradient(135deg, #64748b, #475569);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.wallet-table {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(147, 51, 234, 0.08);
+    backdrop-filter: blur(20px);
+}
+
+.table-header {
+    background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+    color: white;
+    padding: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-header.conspiracy {
+    background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+}
+
+.copy-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+.copy-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2);
+}
+
+.modern-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.modern-table th,
+.modern-table td {
+    padding: 1.5rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(147, 51, 234, 0.08);
+}
+
+.modern-table th {
+    background: rgba(139, 92, 246, 0.05);
+    font-weight: 700;
+    color: #374151;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.modern-table tbody tr {
+    transition: all 0.3s ease;
+}
+
+.modern-table tbody tr:hover {
+    background: rgba(139, 92, 246, 0.05);
+    transform: translateX(4px);
+}
+
+.wallet-address {
+    font-family: 'Monaco', 'Menlo', 'SF Mono', monospace;
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.wallet-remark {
+    font-weight: 700;
+    padding: 0.6rem 1.2rem;
+    border-radius: 25px;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.remark-smart {
+    background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+    color: white;
+}
+
+.remark-conspiracy {
+    background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+    color: white;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .smart-wallet-container {
+        padding: 1rem;
+    }
+    
+    .main-card {
+        border-radius: 20px;
+    }
+    
+    .form-section,
+    .section-body {
+        padding: 1.5rem;
+    }
+    
+    .card-header-modern {
+        padding: 2rem 1.5rem;
+    }
+    
+    .step-indicator {
+        flex-wrap: wrap;
+    }
+    
+    .step {
+        margin: 0.5rem 0.25rem;
+        width: 45px;
+        height: 45px;
+        font-size: 1rem;
+    }
+    
+    .progress-content {
+        padding: 2rem;
+        margin: 1rem;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+    }
+    
+    .submit-btn {
+        padding: 1rem 3rem;
+        font-size: 1rem;
+    }
+}
+
+/* 额外的视觉效果 */
+.floating-elements {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.floating-elements::before,
+.floating-elements::after {
+    content: '';
+    position: absolute;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: float 20s ease-in-out infinite;
+}
+
+.floating-elements::before {
+    width: 300px;
+    height: 300px;
+    top: 10%;
+    left: 10%;
+    animation-delay: 0s;
+}
+
+.floating-elements::after {
+    width: 200px;
+    height: 200px;
+    bottom: 20%;
+    right: 10%;
+    animation-delay: 10s;
+    background: radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%);
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) translateX(0px) scale(1);
+        opacity: 0.5;
+    }
+    25% {
+        transform: translateY(-20px) translateX(10px) scale(1.1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: translateY(-10px) translateX(-10px) scale(0.9);
+        opacity: 0.6;
+    }
+    75% {
+        transform: translateY(-30px) translateX(5px) scale(1.05);
+        opacity: 0.7;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="smart-wallet-container">
+    <div class="floating-elements"></div>
+    
+    <!-- 进度条 -->
+    <div id="progressContainer" class="progress-container">
+        <div class="progress-content">
+            <div class="progress-title">🧠 智能分析中...</div>
+            
+            <div class="step-indicator">
+                <div class="step" id="step1">1</div>
+                <div class="step" id="step2">2</div>
+                <div class="step" id="step3">3</div>
+                <div class="step" id="step4">4</div>
+                <div class="step" id="step5">5</div>
+            </div>
+            
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            
+            <div class="progress-text" id="progressText">准备开始分析...</div>
+            <div class="progress-details" id="progressDetails">正在初始化智能分析系统</div>
+            
+            <button type="button" class="btn btn-outline-light btn-lg mt-3" onclick="cancelAnalysis()" style="border-radius: 25px;">
+                取消分析
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 主标题卡片 -->
+        <div class="main-card">
+            <div class="card-header-modern">
+                <h1 class="display-4 mb-3">🧠 聪明/阴谋钱包识别</h1>
+            </div>
+
+            <div class="form-section">
+                <form method="POST" id="analysisForm">
+                    <!-- 基础信息 -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="modern-input-group">
+                                <label class="modern-label">代币合约地址 *</label>
+                                <input 
+                                    type="text" 
+                                    class="modern-input" 
+                                    name="tokenAddress" 
+                                    placeholder="请输入代币合约地址"
+                                    value="{{ request.form.get('tokenAddress', '') }}"
+                                    required
+                                >
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="modern-input-group">
+                                <label class="modern-label">代币名称 *</label>
+                                <input 
+                                    type="text" 
+                                    class="modern-input" 
+                                    name="tokenName" 
+                                    placeholder="请输入代币名称"
+                                    value="{{ request.form.get('tokenName', '') }}"
+                                    required
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="modern-input-group">
+                                <label class="modern-label">区块链网络</label>
+                                <select class="modern-select" name="chainId">
+                                    <option value="501" {{ 'selected' if request.form.get('chainId', '501') == '501' }}>
+                                        🟣 Solana
+                                    </option>
+                                    <option value="1" {{ 'selected' if request.form.get('chainId') == '1' }}>
+                                        🔷 Ethereum
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="modern-input-group">
+                                <label class="modern-label">分析地址数量</label>
+                                <input 
+                                    type="number" 
+                                    class="modern-input" 
+                                    name="limit" 
+                                    min="1" 
+                                    max="1000" 
+                                    value="{{ request.form.get('limit', '300') }}"
+                                    placeholder="1-1000 (默认300)"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 聪明钱包筛选条件 -->
+                    <div class="section-card">
+                        <div class="section-header smart">
+                            💎 聪明钱包筛选条件
+                        </div>
+                        <div class="section-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="modern-input-group">
+                                        <label class="modern-label">近1月胜率阈值 (%)</label>
+                                        <input 
+                                            type="number" 
+                                            class="modern-input" 
+                                            name="winRate1m" 
+                                            min="0" 
+                                            max="100" 
+                                            value="{{ request.form.get('winRate1m', '35') }}"
+                                            placeholder="默认 35%"
+                                        >
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="modern-input-group">
+                                        <label class="modern-label">近3月胜率阈值 (%)</label>
+                                        <input 
+                                            type="number" 
+                                            class="modern-input" 
+                                            name="winRate3m" 
+                                            min="0" 
+                                            max="100" 
+                                            value="{{ request.form.get('winRate3m', '30') }}"
+                                            placeholder="默认 30%"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="modern-input-group">
+                                        <label class="modern-label">单币最小盈利 (USD)</label>
+                                        <input 
+                                            type="number" 
+                                            class="modern-input" 
+                                            name="minProfit" 
+                                            min="0" 
+                                            value="{{ request.form.get('minProfit', '10000') }}"
+                                            placeholder="默认 10,000 USD"
+                                        >
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="modern-input-group">
+                                        <label class="modern-label">高收益要求</label>
+                                        <div class="row">
+                                            <div class="col-5">
+                                                <input 
+                                                    type="number" 
+                                                    class="modern-input" 
+                                                    name="highReturnMin" 
+                                                    min="0" 
+                                                    value="{{ request.form.get('highReturnMin', '1') }}"
+                                                    placeholder=">500%数量"
+                                                >
+                                            </div>
+                                            <div class="col-2 text-center d-flex align-items-center justify-content-center">
+                                                <span class="fw-bold" style="color: #8b5cf6;">或</span>
+                                            </div>
+                                            <div class="col-5">
+                                                <input 
+                                                    type="number" 
+                                                    class="modern-input" 
+                                                    name="mediumReturnMin" 
+                                                    min="0" 
+                                                    value="{{ request.form.get('mediumReturnMin', '2') }}"
+                                                    placeholder="0-500%数量"
+                                                >
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 阴谋钱包筛选条件 -->
+                    <div class="section-card">
+                        <div class="section-header conspiracy">
+                            🐟 阴谋钱包筛选条件
+                        </div>
+                        <div class="section-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="modern-input-group">
+                                        <label class="modern-label">空白天数阈值</label>
+                                        <input 
+                                            type="number" 
+                                            class="modern-input" 
+                                            name="emptyDays" 
+                                            min="1" 
+                                            value="{{ request.form.get('emptyDays', '10') }}"
+                                            placeholder="默认 10 天"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="submit" class="submit-btn">
+                            🚀 开始智能分析
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 结果显示 -->
+        {% if results %}
+        <div class="mt-5">
+            <!-- 统计卡片 -->
+            <div class="row mb-4">
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card total">
+                        <div class="stat-number">{{ results.stats.total_analyzed }}</div>
+                        <div class="stat-label">总分析数</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card smart">
+                        <div class="stat-number">{{ results.stats.smart_count }}</div>
+                        <div class="stat-label">聪明钱包</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card conspiracy">
+                        <div class="stat-number">{{ results.stats.conspiracy_count }}</div>
+                        <div class="stat-label">阴谋钱包</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card other">
+                        <div class="stat-number">{{ results.stats.failed_count }}</div>
+                        <div class="stat-label">其他钱包</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聪明钱包列表 -->
+            {% if results.smart_wallets %}
+            <div class="result-card">
+                <div class="wallet-table">
+                    <div class="table-header">
+                        <h4 class="mb-0">💎 聪明钱包 ({{ results.smart_wallets|length }})</h4>
+                        <button class="copy-btn" onclick="copyWalletRemarks('smart')">
+                            📋 复制备注
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>钱包地址</th>
+                                    <th>智能标记</th>
+                                    <th>特征标签</th>
+                                    <th>分析原因</th>
+                                    <th>Twitter信息</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for wallet in results.smart_wallets %}
+                                <tr>
+                                    <td>
+                                        <span class="wallet-address">
+                                            {{ wallet.address[:8] }}...{{ wallet.address[-6:] }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="wallet-remark remark-smart">
+                                            {{ wallet.remark }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span style="font-size: 1.5rem;">{{ wallet.emoji }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ wallet.reason }}</small>
+                                    </td>
+                                    <td>
+                                        {% if wallet.twitter_info and wallet.twitter_info.twitter_name %}
+                                            <small>
+                                                <strong style="color: #8b5cf6;">{{ wallet.twitter_info.twitter_name }}</strong><br>
+                                                <span class="text-muted">{{ wallet.twitter_info.follow_count }} 关注</span>
+                                            </small>
+                                        {% else %}
+                                            <small class="text-muted">无</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 阴谋钱包列表 -->
+            {% if results.conspiracy_wallets %}
+            <div class="result-card">
+                <div class="wallet-table">
+                    <div class="table-header conspiracy">
+                        <h4 class="mb-0">🐟 阴谋钱包 ({{ results.conspiracy_wallets|length }})</h4>
+                        <button class="copy-btn" onclick="copyWalletRemarks('conspiracy')">
+                            📋 复制备注
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>钱包地址</th>
+                                    <th>标记</th>
+                                    <th>特征标签</th>
+                                    <th>分析原因</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for wallet in results.conspiracy_wallets %}
+                                <tr>
+                                    <td>
+                                        <span class="wallet-address">
+                                            {{ wallet.address[:8] }}...{{ wallet.address[-6:] }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="wallet-remark remark-conspiracy">
+                                            {{ wallet.remark }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span style="font-size: 1.5rem;">{{ wallet.emoji }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ wallet.reason }}</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+let analysisInProgress = false;
+
+// 表单提交处理
+document.getElementById('analysisForm').addEventListener('submit', function(e) {
+    if (analysisInProgress) {
+        e.preventDefault();
+        return;
+    }
+    
+    analysisInProgress = true;
+    showProgress();
+    simulateProgress();
+});
+
+// 显示进度条
+function showProgress() {
+    document.getElementById('progressContainer').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+
+// 隐藏进度条
+function hideProgress() {
+    document.getElementById('progressContainer').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    analysisInProgress = false;
+}
+
+// 取消分析
+function cancelAnalysis() {
+    hideProgress();
+    // 这里可以添加取消请求的逻辑
+}
+
+// 模拟进度更新
+function simulateProgress() {
+    const steps = [
+        { progress: 15, text: '获取代币持有者数据', details: '正在从区块链网络获取Top Holders数据...', step: 1 },
+        { progress: 35, text: '分析钱包交易历史', details: '正在调用OKX API获取钱包详细交易信息...', step: 2 },
+        { progress: 55, text: '智能识别聪明钱包', details: '基于胜率和盈利数据进行AI智能筛选...', step: 3 },
+        { progress: 75, text: 'GMGN数据交叉验证', details: '使用GMGN API进行二次交叉验证...', step: 4 },
+        { progress: 95, text: '生成智能分析报告', details: '正在生成专业标记和统计数据...', step: 5 },
+        { progress: 100, text: '分析完成！', details: '正在展示分析结果...', step: 5 }
+    ];
+    
+    let currentStep = 0;
+    const interval = setInterval(() => {
+        if (currentStep < steps.length) {
+            const step = steps[currentStep];
+            updateProgress(step.progress, step.text, step.details, step.step);
+            currentStep++;
+        } else {
+            clearInterval(interval);
+            setTimeout(() => {
+                hideProgress();
+            }, 1000);
+        }
+    }, 2000); // 每2秒更新一次
+}
+
+// 更新进度
+function updateProgress(progress, text, details, stepNumber) {
+    document.getElementById('progressBar').style.width = progress + '%';
+    document.getElementById('progressText').textContent = text;
+    document.getElementById('progressDetails').textContent = details;
+    
+    // 更新步骤指示器
+    for (let i = 1; i <= stepNumber; i++) {
+        const stepEl = document.getElementById('step' + i);
+        if (i < stepNumber) {
+            stepEl.className = 'step completed';
+        } else if (i === stepNumber) {
+            stepEl.className = 'step active';
+        }
+    }
+}
+
+// 复制备注功能
+function copyWalletRemarks(type) {
+    let remarks = [];
+    
+    const selector = type === 'smart' ? 
+        '.remark-smart' : 
+        '.remark-conspiracy';
+    
+    document.querySelectorAll(selector).forEach(remark => {
+        const row = remark.closest('tr');
+        const address = row.querySelector('.wallet-address').textContent.trim();
+        const remarkText = remark.textContent.trim();
+        remarks.push(`${address}:${remarkText}`);
+    });
+    
+    if (remarks.length > 0) {
+        const text = remarks.join(',');
+        navigator.clipboard.writeText(text).then(() => {
+            showNotification(`✨ 已成功复制 ${remarks.length} 条${type === 'smart' ? '聪明' : '阴谋'}钱包备注`, 'success');
+        }).catch(() => {
+            showNotification('❌ 复制失败，请手动选择复制', 'error');
+        });
+    }
+}
+
+// 显示通知
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    const colors = {
+        success: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
+        error: 'linear-gradient(135deg, #ec4899, #f97316)',
+        info: 'linear-gradient(135deg, #8b5cf6, #ec4899)'
+    };
+    
+    notification.style.cssText = `
+        position: fixed;
+        top: 30px;
+        right: 30px;
+        background: ${colors[type]};
+        color: white;
+        padding: 1.2rem 2rem;
+        border-radius: 16px;
+        box-shadow: 0 15px 40px rgba(139, 92, 246, 0.3);
+        z-index: 10001;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        max-width: 400px;
+        backdrop-filter: blur(20px);
+        animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 500);
+    }, 4000);
+}
+
+// 添加动画样式
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%) translateY(-20px); opacity: 0; }
+        to { transform: translateX(0) translateY(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0) translateY(0); opacity: 1; }
+        to { transform: translateX(100%) translateY(-20px); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}
