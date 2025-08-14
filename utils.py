@@ -8,6 +8,7 @@ import json
 import pandas as pd
 from io import BytesIO
 from collections import defaultdict
+import certifi
 
 # 禁用SSL警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -28,6 +29,9 @@ def create_robust_session():
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     
+    # 使用最新的 certifi 证书
+    session.verify = certifi.where()
+    
     # 设置请求头
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -43,7 +47,7 @@ def create_robust_session():
     return session
 
 def fetch_data_robust(url, params=None, max_retries=3, timeout=15):
-    """更健壮的数据获取函数"""
+    """更健壮的数据获取函数，使用最新 certifi 证书"""
     session = create_robust_session()
     
     for attempt in range(max_retries):
@@ -54,7 +58,7 @@ def fetch_data_robust(url, params=None, max_retries=3, timeout=15):
                 url, 
                 params=params, 
                 timeout=timeout,
-                verify=False,  # 暂时禁用SSL验证
+                verify=certifi.where(),  # 使用最新的 certifi 证书包
                 allow_redirects=True
             )
             
@@ -75,16 +79,14 @@ def fetch_data_robust(url, params=None, max_retries=3, timeout=15):
                 time.sleep(2 ** attempt)  # 指数退避
                 continue
             else:
-                print("🔄 尝试使用不同的SSL配置...")
-                # 最后一次尝试：使用更宽松的SSL设置
+                print("🔄 尝试更新 certifi 证书并重试...")
+                # 最后一次尝试：确保使用最新证书
                 try:
-                    import ssl
-                    ssl_context = ssl.create_default_context()
-                    ssl_context.check_hostname = False
-                    ssl_context.verify_mode = ssl.CERT_NONE
+                    # 创建新的SSL上下文，使用最新证书
+                    ssl_context = ssl.create_default_context(cafile=certifi.where())
                     
                     with requests.Session() as fallback_session:
-                        fallback_session.verify = False
+                        fallback_session.verify = certifi.where()
                         fallback_response = fallback_session.get(
                             url, 
                             params=params, 
@@ -94,7 +96,8 @@ def fetch_data_robust(url, params=None, max_retries=3, timeout=15):
                         return fallback_response.json()
                         
                 except Exception as fallback_error:
-                    print(f"❌ 备用方案也失败: {fallback_error}")
+                    print(f"❌ 使用最新证书的备用方案也失败: {fallback_error}")
+                    print("💡 提示：请尝试运行 'pip install --upgrade certifi' 更新证书")
                     return None
                     
         except requests.exceptions.ConnectionError as e:

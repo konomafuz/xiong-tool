@@ -1,65 +1,624 @@
 {% extends "base.html" %}
+
+{% block title %}地址备注工具{% endblock %}
+
 {% block content %}
-<h2>备注工具</h2>
-<form method="post">
-    <div class="form-group">
-        <label>CA地址</label>
-        <input type="text" name="caAddress" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label>CA名称</label>
-        <input type="text" name="caName" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label>链ID</label>
-        <input type="text" name="chainId" class="form-control" value="501">
-    </div>
-    <div class="form-group">
-        <label>备注类型</label>
-        <select name="remarkType" class="form-control">
-            <option value="okx">okx备注</option>
-            <option value="gmgn">gmgn备注</option>
-        </select>
-    </div>
-    <!-- 数量设置部分更新 -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <label for="holderCount" class="pixel-label">Top Holders 数量</label>
-            <input 
-                type="number" 
-                class="pixel-input" 
-                id="holderCount" 
-                name="holderCount" 
-                min="1" 
-                max="1000" 
-                value="{{ request.form.get('holderCount', '100') }}"
-                placeholder="获取前N个持仓地址"
-            >
-            <small class="pixel-help-text">范围: 1-1000，默认100</small>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- 页面标题 -->
+            <div class="text-center mb-4">
+                <h2 class="gradient-text">
+                    <i class="fas fa-tags me-2"></i>地址备注工具
+                </h2>
+                <p class="text-muted">为GMGN/OKX钱包地址生成专业备注标记</p>
+            </div>
+
+            <!-- 参数设置表单 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-gradient text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>参数设置
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="remarkForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">CA地址</label>
+                                <input type="text" name="caAddress" class="form-control" 
+                                       value="{{ request.form.get('caAddress', '') }}" 
+                                       placeholder="输入代币合约地址" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">CA名称</label>
+                                <input type="text" name="caName" class="form-control" 
+                                       value="{{ request.form.get('caName', '') }}" 
+                                       placeholder="输入代币名称" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Top Holders 数量</label>
+                                <input type="number" name="holderCount" class="form-control" 
+                                       min="1" max="200" 
+                                       value="{{ request.form.get('holderCount', '50') }}" 
+                                       placeholder="最多200个">
+                                <small class="text-muted">获取前N个持仓地址</small>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Top Traders 数量</label>
+                                <input type="number" name="traderCount" class="form-control" 
+                                       min="1" max="200" 
+                                       value="{{ request.form.get('traderCount', '50') }}" 
+                                       placeholder="最多200个">
+                                <small class="text-muted">获取前N个交易者</small>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">链ID</label>
+                                <select name="chainId" class="form-select">
+                                    <option value="501" {{ 'selected' if request.form.get('chainId', '501') == '501' }}>Solana (501)</option>
+                                    <option value="1" {{ 'selected' if request.form.get('chainId') == '1' }}>Ethereum (1)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 阴谋钱包检测设置 -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="conspiracyCheck" 
+                                           id="conspiracyCheck" 
+                                           {{ 'checked' if request.form.get('conspiracyCheck') }}>
+                                    <label class="form-check-label fw-bold" for="conspiracyCheck">
+                                        启用阴谋钱包检测
+                                    </label>
+                                </div>
+                                <small class="text-muted">检测疑似新建的阴谋钱包</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">检测天数</label>
+                                <input type="number" name="conspiracyDays" class="form-control" 
+                                       min="1" max="30" 
+                                       value="{{ request.form.get('conspiracyDays', '10') }}" 
+                                       placeholder="检查多少天前的数据">
+                                <small class="text-muted">检查N天前是否有交易记录</small>
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-lg btn-gradient px-5">
+                                <i class="fas fa-play me-2"></i>开始分析
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 进度条 -->
+            <div id="progressContainer" class="card shadow-sm mb-4" style="display: none;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">分析进度</span>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div class="progress" style="height: 20px;">
+                        <div id="progressBar" class="progress-bar bg-gradient" 
+                             role="progressbar" style="width: 0%">
+                        </div>
+                    </div>
+                    <div id="progressStatus" class="text-muted mt-2">准备开始...</div>
+                </div>
+            </div>
+
+            <!-- 结果展示区 -->
+            {% if normal_remarks or conspiracy_remarks %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-gradient text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list-alt me-2"></i>备注结果
+                        </h5>
+                        <!-- 下载按钮 -->
+                        <div class="dropdown">
+                            <button class="btn btn-light btn-sm dropdown-toggle" type="button" 
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-download me-1"></i>导出
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><h6 class="dropdown-header">导出范围</h6></li>
+                                <li>
+                                    <button class="dropdown-item" onclick="exportData('all', 'excel')">
+                                        <i class="fas fa-file-excel me-2"></i>全部数据 (Excel)
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" onclick="exportData('normal', 'excel')">
+                                        <i class="fas fa-user me-2"></i>普通备注 (Excel)
+                                    </button>
+                                </li>
+                                {% if conspiracy_remarks %}
+                                <li>
+                                    <button class="dropdown-item" onclick="exportData('conspiracy', 'excel')">
+                                        <i class="fas fa-fish me-2"></i>阴谋钱包 (Excel)
+                                    </button>
+                                </li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><h6 class="dropdown-header">文本格式</h6></li>
+                                <li>
+                                    <button class="dropdown-item" onclick="exportData('all', 'txt')">
+                                        <i class="fas fa-file-alt me-2"></i>全部数据 (TXT)
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Tab导航 -->
+                    <ul class="nav nav-tabs" id="remarksTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="normal-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#normal" type="button" role="tab">
+                                <i class="fas fa-user me-2"></i>
+                                普通备注 
+                                <span class="badge bg-primary ms-1">{{ normal_remarks|length }}</span>
+                            </button>
+                        </li>
+                        {% if conspiracy_remarks %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="conspiracy-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#conspiracy" type="button" role="tab">
+                                <i class="fas fa-fish me-2"></i>
+                                阴谋钱包备注 
+                                <span class="badge bg-warning ms-1">{{ conspiracy_remarks|length }}</span>
+                            </button>
+                        </li>
+                        {% endif %}
+                    </ul>
+
+                    <!-- Tab内容 -->
+                    <div class="tab-content" id="remarksTabContent">
+                        <!-- 普通备注 -->
+                        <div class="tab-pane fade show active" id="normal" role="tabpanel">
+                            <div class="p-3">
+                                {% if normal_remarks %}
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="text-muted mb-0">共 {{ normal_remarks|length }} 个普通地址</h6>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="copyAllRemarks('normal')">
+                                        <i class="fas fa-copy me-1"></i>复制全部
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="5%">#</th>
+                                                <th width="35%">地址</th>
+                                                <th width="50%">备注</th>
+                                                <th width="10%">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in normal_remarks %}
+                                            <tr>
+                                                <td>{{ loop.index }}</td>
+                                                <td>
+                                                    <code class="address-text">{{ item.address }}</code>
+                                                </td>
+                                                <td>
+                                                    <span class="remark-text">{{ item.remark }}</span>
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-secondary" 
+                                                            onclick="copySingleRemark('{{ item.address }}', '{{ item.remark|replace("'", "\\'") }}')">
+                                                        <i class="fas fa-copy"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <div class="text-center text-muted py-4">
+                                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                                    <p>暂无普通地址备注</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- 阴谋钱包备注 -->
+                        {% if conspiracy_remarks %}
+                        <div class="tab-pane fade" id="conspiracy" role="tabpanel">
+                            <div class="p-3">
+                                <div class="alert alert-warning" role="alert">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>阴谋钱包提示：</strong> 以下地址疑似新建的阴谋钱包，投资时请谨慎考虑
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="text-muted mb-0">共 {{ conspiracy_remarks|length }} 个阴谋钱包</h6>
+                                    <button class="btn btn-sm btn-outline-warning" onclick="copyAllRemarks('conspiracy')">
+                                        <i class="fas fa-copy me-1"></i>复制全部
+                                    </button>
+                                </div>
+                                
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-warning">
+                                            <tr>
+                                                <th width="5%">#</th>
+                                                <th width="35%">地址</th>
+                                                <th width="50%">备注</th>
+                                                <th width="10%">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in conspiracy_remarks %}
+                                            <tr class="table-warning">
+                                                <td>{{ loop.index }}</td>
+                                                <td>
+                                                    <code class="address-text">{{ item.address }}</code>
+                                                </td>
+                                                <td>
+                                                    <span class="remark-text fw-bold text-danger">{{ item.remark }}</span>
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-danger" 
+                                                            onclick="copySingleRemark('{{ item.address }}', '{{ item.remark|replace("'", "\\'") }}')">
+                                                        <i class="fas fa-copy"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
-        <div class="col-md-6">
-            <label for="traderCount" class="pixel-label">Top Traders 数量</label>
-            <input 
-                type="number" 
-                class="pixel-input" 
-                id="traderCount" 
-                name="traderCount" 
-                min="1" 
-                max="1000" 
-                value="{{ request.form.get('traderCount', '100') }}"
-                placeholder="获取前N个交易者"
-            >
-            <small class="pixel-help-text">范围: 1-1000，默认100</small>
+    </div>
+</div>
+
+<!-- 隐藏的数据存储 -->
+<script id="normalRemarksData" type="application/json">
+    {{ normal_remarks | tojson if normal_remarks else '[]' }}
+</script>
+
+<script id="conspiracyRemarksData" type="application/json">
+    {{ conspiracy_remarks | tojson if conspiracy_remarks else '[]' }}
+</script>
+
+<style>
+/* 渐变文字 */
+.gradient-text {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* 渐变背景 */
+.bg-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 渐变按钮 */
+.btn-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-gradient:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    color: white;
+}
+
+/* 地址文字样式 */
+.address-text {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    background-color: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+/* 备注文字样式 */
+.remark-text {
+    font-weight: 500;
+    color: #495057;
+}
+
+/* 表格悬停效果 */
+.table-hover tbody tr:hover {
+    background-color: rgba(102, 126, 234, 0.1);
+}
+
+/* 进度条动画 */
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+/* Tab样式优化 */
+.nav-tabs .nav-link {
+    border-radius: 0;
+    border: 1px solid transparent;
+    color: #6c757d;
+}
+
+.nav-tabs .nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    color: white;
+}
+
+/* 卡片阴影 */
+.card {
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+    .address-text {
+        font-size: 0.8em;
+    }
+    
+    .table-responsive {
+        font-size: 0.9em;
+    }
+}
+</style>
+
+<script>
+// 获取数据
+function getNormalRemarks() {
+    try {
+        const data = document.getElementById('normalRemarksData').textContent;
+        return JSON.parse(data);
+    } catch (e) {
+        console.error('解析普通备注数据失败:', e);
+        return [];
+    }
+}
+
+function getConspiracyRemarks() {
+    try {
+        const data = document.getElementById('conspiracyRemarksData').textContent;
+        return JSON.parse(data);
+    } catch (e) {
+        console.error('解析阴谋钱包数据失败:', e);
+        return [];
+    }
+}
+
+// 复制单个备注 - 修改为你要求的格式
+function copySingleRemark(address, remark) {
+    const text = address + ':' + remark;
+    copyToClipboard(text, '单个备注');
+}
+
+// 复制全部备注 - 修改为你要求的格式
+function copyAllRemarks(type) {
+    let remarks = [];
+    
+    if (type === 'normal') {
+        const normalData = getNormalRemarks();
+        normalData.forEach(item => {
+            remarks.push(item.address + ':' + item.remark);
+        });
+    } else if (type === 'conspiracy') {
+        const conspiracyData = getConspiracyRemarks();
+        conspiracyData.forEach(item => {
+            remarks.push(item.address + ':' + item.remark);
+        });
+    }
+    
+    // 用逗号分隔，结尾不加逗号
+    const text = remarks.join(',');
+    copyToClipboard(text, `${remarks.length} 条备注`);
+}
+
+// 统一的复制方法（支持多种环境）
+function copyToClipboard(text, description = '内容') {
+    // 方法1：尝试现代 Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(`复制成功：${description}`, 'success');
+        }).catch(() => {
+            fallbackCopy(text, description);
+        });
+    } else {
+        // 方法2：回退到传统方法
+        fallbackCopy(text, description);
+    }
+}
+
+// 传统复制方法（兼容HTTP和旧浏览器）
+function fallbackCopy(text, description = '内容') {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    
+    try {
+        textarea.focus();
+        textarea.select();
+        textarea.setSelectionRange(0, text.length);
+        
+        const success = document.execCommand('copy');
+        if (success) {
+            showToast(`复制成功：${description}`, 'success');
+        } else {
+            showToast('复制失败，请手动选择文本复制', 'error');
+        }
+    } catch (err) {
+        console.error('复制失败:', err);
+        showToast('复制失败，请手动选择文本复制', 'error');
+        
+        // 最后的备选方案：选中文本让用户手动复制
+        textarea.style.position = 'static';
+        textarea.style.left = 'auto';
+        textarea.style.opacity = '1';
+        textarea.style.width = '100%';
+        textarea.style.height = '100px';
+        textarea.focus();
+        textarea.select();
+    } finally {
+        setTimeout(() => {
+            if (document.body.contains(textarea)) {
+                document.body.removeChild(textarea);
+            }
+        }, 100);
+    }
+}
+
+// 导出数据
+function exportData(type, format) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/download_gmgn_remarks';
+    form.style.display = 'none';
+    
+    const typeInput = document.createElement('input');
+    typeInput.type = 'hidden';
+    typeInput.name = 'remarkType';
+    typeInput.value = type;
+    
+    const formatInput = document.createElement('input');
+    formatInput.type = 'hidden';
+    formatInput.name = 'exportFormat';
+    formatInput.value = format;
+    
+    form.appendChild(typeInput);
+    form.appendChild(formatInput);
+    document.body.appendChild(form);
+    
+    form.submit();
+    document.body.removeChild(form);
+}
+
+// 提示消息
+function showToast(message, type = 'success') {
+    // 移除已存在的toast
+    const existingToasts = document.querySelectorAll('.toast');
+    existingToasts.forEach(toast => toast.remove());
+    
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
         </div>
-    </div>
-    <button type="submit" class="btn btn-primary">查询</button>
-</form>
-{% if result_json_str %}
-    <h4 class="mt-4">结果：</h4>
-    <div style="margin-bottom: 1em;">
-        <pre id="json-result" style="max-height:400px;overflow:auto; background:#f8f9fa; border-radius:6px; padding:2em 1em 1em 1em; margin:0;">
-{{ result_json_str }}
-        </pre>
-    </div>
-{% endif %}
+    `;
+    
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '1080';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    const toastElement = toastContainer.lastElementChild;
+    
+    // 使用Bootstrap Toast（如果可用）或简单的显示/隐藏
+    if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+        const toast = new bootstrap.Toast(toastElement, {
+            autohide: true,
+            delay: 3000
+        });
+        toast.show();
+        
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    } else {
+        // 简单的显示/隐藏
+        toastElement.style.display = 'block';
+        setTimeout(() => {
+            toastElement.style.opacity = '0';
+            setTimeout(() => {
+                if (toastElement.parentNode) {
+                    toastElement.remove();
+                }
+            }, 300);
+        }, 3000);
+    }
+}
+
+// 表单提交时显示进度条
+document.getElementById('remarkForm').addEventListener('submit', function(e) {
+    const conspiracyCheck = document.getElementById('conspiracyCheck').checked;
+    
+    if (conspiracyCheck) {
+        // 如果启用了阴谋钱包检测，显示进度条
+        document.getElementById('progressContainer').style.display = 'block';
+        simulateProgress();
+    }
+});
+
+// 模拟进度条
+function simulateProgress() {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const progressStatus = document.getElementById('progressStatus');
+    
+    let progress = 0;
+    const steps = [
+        '获取持仓数据...',
+        '获取交易数据...',
+        '检测阴谋钱包...',
+        '生成备注...',
+        '完成分析'
+    ];
+    
+    const interval = setInterval(() => {
+        progress += Math.random() * 20;
+        if (progress > 100) progress = 100;
+        
+        progressBar.style.width = progress + '%';
+        progressText.textContent = Math.round(progress) + '%';
+        
+        const stepIndex = Math.floor((progress / 100) * steps.length);
+        if (stepIndex < steps.length) {
+            progressStatus.textContent = steps[stepIndex];
+        }
+        
+        if (progress >= 100) {
+            clearInterval(interval);
+            progressStatus.textContent = '分析完成！';
+        }
+    }, 500);
+}
+
+// 页面加载完成后检查复制功能可用性
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Clipboard API 支持:', !!navigator.clipboard);
+    console.log('安全上下文:', window.isSecureContext);
+    
+    if (!navigator.clipboard && !window.isSecureContext) {
+        console.warn('当前环境不支持现代剪贴板API，将使用传统方法');
+    }
+});
+</script>
 {% endblock %}

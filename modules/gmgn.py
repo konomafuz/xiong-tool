@@ -1,5 +1,7 @@
 import requests
 import time
+from datetime import datetime, timedelta
+from utils import fetch_data_robust
 
 def fetch_top_holders(chain_id, token_address, limit=100):
     """获取Top Holders"""
@@ -157,35 +159,125 @@ def fetch_top_traders(chain_id, token_address, limit=100):
         return []
 
 
-def generate_remark_name(ca_name, holder_data=None, trader_data=None):
+def fetch_wallet_profile(chain_id, wallet_address, period_type=5):
+    """获取钱包profile信息"""
+    url = "https://web3.okx.com/priapi/v1/dx/market/v2/pnl/wallet-profile/summary"
+    
+    params = {
+        "periodType": period_type,
+        "chainId": chain_id,
+        "walletAddress": wallet_address,
+        "t": int(time.time() * 1000)
+    }
+    
+    try:
+        response = fetch_data_robust(url, params, max_retries=3, timeout=20)
+        
+        if response and response.get('code') == 0:
+            print(f"✅ 钱包 {wallet_address[:8]}... profile获取成功")
+            return response.get('data', {})
+        else:
+            print(f"❌ 钱包 {wallet_address[:8]}... profile获取失败: {response}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ 钱包 {wallet_address[:8]}... 请求异常: {e}")
+        return None
+
+
+def check_conspiracy_wallet(wallet_address, chain_id="501", days_before=10):
+    """检查是否为阴谋钱包
+    
+    Args:
+        wallet_address: 钱包地址
+        chain_id: 链ID，默认501(Solana)
+        days_before: 检查多少天前的数据，默认10天
+    
+    Returns:
+        bool: True表示是阴谋钱包，False表示不是
+    """
+    print(f"🔍 检查钱包 {wallet_address[:8]}... 是否为阴谋钱包")
+    
+    # 获取3个月的钱包数据
+    wallet_data = fetch_wallet_profile(chain_id, wallet_address, period_type=5)
+    
+    if not wallet_data:
+        print(f"❌ 无法获取钱包数据")
+        return False
+    
+    # 获取历史PnL数据
+    date_pnl_list = wallet_data.get("datePnlList", [])
+    
+    if not date_pnl_list:
+        print(f"❌ 无历史PnL数据")
+        return False
+    
+    # 计算N天前的时间戳
+    cutoff_timestamp = int((datetime.now() - timedelta(days=days_before)).timestamp() * 1000)
+    
+    print(f"📅 检查 {days_before} 天前 ({datetime.fromtimestamp(cutoff_timestamp/1000).strftime('%Y-%m-%d')}) 的数据")
+    
+    # 检查N天前的所有profit是否都为0
+    old_records = []
+    for item in date_pnl_list:
+        timestamp = item.get("timestamp", 0)
+        profit = float(item.get("profit", 0))
+        
+        if timestamp < cutoff_timestamp:
+            old_records.append(profit)
+    
+    if not old_records:
+        print(f"💡 没有 {days_before} 天前的数据，可能是新钱包")
+        return True
+    
+    # 如果所有旧记录的profit都是0或接近0，认为是阴谋钱包
+    all_zero = all(abs(profit) < 1 for profit in old_records)
+    
+    if all_zero:
+        print(f"🐟 确认为阴谋钱包: {days_before}天前的{len(old_records)}条记录profit都为0")
+        return True
+    else:
+        print(f"✅ 非阴谋钱包: {days_before}天前有非零交易记录")
+        return False
+
+
+def generate_remark_name(ca_name, holder_data=None, trader_data=None, is_conspiracy=False):
     """生成备注名称
     
     规则:
     1. 只在Holders: {name}-持{percentage}%
     2. 只在Traders: {name}-盈{profit}k  
     3. 既在Holders又在Traders: {name}-持{percentage}%-盈{profit}k
+    4. 如果是阴谋钱包: 新-{name}-...
     """
-    parts = [ca_name]
+    # 基础名称部分
+    base_parts = [ca_name]
     
     # 持仓信息
     if holder_data:
         percentage = float(holder_data.get("holdAmountPercentage", 0))
         # 格式化：去掉多余的0，保留必要的小数位
         if percentage == int(percentage):
-            parts.append(f"持{int(percentage)}%")
+            base_parts.append(f"持{int(percentage)}%")
         else:
-            parts.append(f"持{percentage:.1f}%")
+            base_parts.append(f"持{percentage:.1f}%")
     
     # 盈利信息  
     if trader_data:
         profit_k = trader_data.get("realizedProfit", 0)
         # 格式化：如果是整数就不显示小数点
         if profit_k == int(profit_k):
-            parts.append(f"盈{int(profit_k)}k")
+            base_parts.append(f"盈{int(profit_k)}k")
         else:
-            parts.append(f"盈{profit_k}k")
+            base_parts.append(f"盈{profit_k}k")
     
-    return "-".join(parts)
+    base_name = "-".join(base_parts)
+    
+    # 如果是阴谋钱包，在前面加"新-"
+    if is_conspiracy:
+        return f"新-{base_name}"
+    else:
+        return base_name
 
 
 def merge_and_format(holders, traders, ca_name):
@@ -257,6 +349,99 @@ def merge_and_format(holders, traders, ca_name):
     print(f"  - 既是Holder又是Trader: {both}")
     
     return result
+
+
+def generate_address_remarks(
+    ca_address, 
+    ca_name, 
+    top_holders_count=20, 
+    top_traders_count=20,
+    conspiracy_check=False,
+    conspiracy_days=10
+):
+    """生成地址备注
+    
+    Args:
+        ca_address: CA地址
+        ca_name: CA名称
+        top_holders_count: 获取持有者数量
+        top_traders_count: 获取交易者数量
+        conspiracy_check: 是否进行阴谋钱包检查
+        conspiracy_days: 阴谋钱包检查天数
+    
+    Returns:
+        dict: {
+            "normal_remarks": [{"address": "", "remark": ""}],  # 普通备注
+            "conspiracy_remarks": [{"address": "", "remark": ""}]  # 阴谋钱包备注
+        }
+    """
+    print(f"\n🚀 开始处理CA: {ca_name} ({ca_address})")
+    
+    # 获取数据
+    holders_data = fetch_top_holders("501", ca_address, top_holders_count)
+    traders_data = fetch_top_traders("501", ca_address, top_traders_count)
+    
+    # 合并数据
+    address_map = {}
+    
+    # 处理 holders
+    if holders_data:
+        for holder in holders_data:
+            addr = holder.get("address")
+            if addr:
+                address_map[addr] = {
+                    "holder": holder,
+                    "trader": None
+                }
+    
+    # 处理 traders
+    if traders_data:
+        for trader in traders_data:
+            addr = trader.get("address")
+            if addr:
+                if addr in address_map:
+                    address_map[addr]["trader"] = trader
+                else:
+                    address_map[addr] = {
+                        "holder": None,
+                        "trader": trader
+                    }
+    
+    normal_remarks = []
+    conspiracy_remarks = []
+    
+    for address, data in address_map.items():
+        holder_data = data.get("holder")
+        trader_data = data.get("trader")
+        
+        # 检查是否为阴谋钱包
+        is_conspiracy = False
+        if conspiracy_check:
+            try:
+                is_conspiracy = check_conspiracy_wallet(address, chain_id="501", days_before=conspiracy_days)
+            except Exception as e:
+                print(f"❌ 检查钱包 {address[:8]}... 阴谋状态失败: {e}")
+                is_conspiracy = False
+        
+        # 生成备注
+        remark = generate_remark_name(ca_name, holder_data, trader_data, is_conspiracy)
+        
+        # 分类存储
+        remark_data = {"address": address, "remark": remark}
+        
+        if is_conspiracy:
+            conspiracy_remarks.append(remark_data)
+        else:
+            normal_remarks.append(remark_data)
+    
+    print(f"\n✅ 处理完成！")
+    print(f"📊 普通地址: {len(normal_remarks)} 个")
+    print(f"🐟 阴谋钱包: {len(conspiracy_remarks)} 个")
+    
+    return {
+        "normal_remarks": normal_remarks,
+        "conspiracy_remarks": conspiracy_remarks
+    }
 
 
 # 测试函数

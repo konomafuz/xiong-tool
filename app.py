@@ -303,30 +303,103 @@ def download_smart_accounts():
         flash(f"导出失败: {str(e)}", "danger")
         return redirect(url_for('smart_accounts'))
 
+@app.route("/download_gmgn_remarks", methods=["POST"])
+def download_gmgn_remarks():
+    """下载GMGN备注数据"""
+    if 'gmgn_results' not in session:
+        flash("没有可导出的数据", "warning")
+        return redirect(url_for('gmgn_tool'))
+    
+    remark_type = request.form.get("remarkType", "all")  # all, normal, conspiracy
+    export_format = request.form.get("exportFormat", "excel")  # excel, txt
+    
+    try:
+        results = session['gmgn_results']
+        normal_remarks = results.get('normal_remarks', [])
+        conspiracy_remarks = results.get('conspiracy_remarks', [])
+        params = results.get('params', {})
+        
+        # 根据类型准备数据
+        data_to_export = []
+        
+        if remark_type == "all":
+            data_to_export.extend(normal_remarks)
+            data_to_export.extend(conspiracy_remarks)
+        elif remark_type == "normal":
+            data_to_export = normal_remarks
+        elif remark_type == "conspiracy":
+            data_to_export = conspiracy_remarks
+        
+        if not data_to_export:
+            flash("没有数据可导出", "warning")
+            return redirect(url_for('gmgn_tool'))
+        
+        # 创建DataFrame
+        df = pd.DataFrame(data_to_export)
+        df.index = df.index + 1  # 从1开始编号
+        
+        # 添加元数据
+        ca_name = params.get('ca_name', 'Unknown')
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        
+        if export_format == "txt":
+            # 导出为文本格式 (地址:备注)
+            filename = f"gmgn_remarks_{ca_name}_{remark_type}_{timestamp}.txt"
+            content = "\n".join([f"{item['address']}:{item['remark']}" for item in data_to_export])
+            
+            import io
+            output = io.StringIO()
+            output.write(content)
+            output.seek(0)
+            
+            from flask import Response
+            return Response(
+                output.getvalue(),
+                mimetype="text/plain",
+                headers={"Content-disposition": f"attachment; filename={filename}"}
+            )
+        else:
+            # 导出为Excel格式
+            filename_prefix = f"gmgn_remarks_{ca_name}_{remark_type}_{timestamp}"
+            return export_to_excel(df, filename_prefix)
+            
+    except Exception as e:
+        flash(f"导出失败: {str(e)}", "danger")
+        return redirect(url_for('gmgn_tool'))
+
+
 @app.route("/gmgn", methods=["GET", "POST"])
 def gmgn_tool():
-    result_json_str = None
-    result_stats = None
+    normal_remarks = None
+    conspiracy_remarks = None
     
     if request.method == "POST":
         ca_address = request.form.get("caAddress", "").strip()
         ca_name = request.form.get("caName", "").strip()
         chain_id = request.form.get("chainId", "501").strip()
-        remark_type = request.form.get("remarkType", "gmgn")
         
-        # 获取数量参数，默认100，最高1000
-        holder_count = request.form.get("holderCount", "100")
-        trader_count = request.form.get("traderCount", "100")
+        # 获取数量参数
+        holder_count = request.form.get("holderCount", "50")
+        trader_count = request.form.get("traderCount", "50")
+        
+        # 阴谋钱包检测参数
+        conspiracy_check = request.form.get("conspiracyCheck") == "on"
+        conspiracy_days = request.form.get("conspiracyDays", "10")
         
         try:
-            holder_count = max(1, min(1000, int(holder_count)))
+            holder_count = max(1, min(200, int(holder_count)))
         except ValueError:
-            holder_count = 100
+            holder_count = 50
             
         try:
-            trader_count = max(1, min(1000, int(trader_count)))
+            trader_count = max(1, min(200, int(trader_count)))
         except ValueError:
-            trader_count = 100
+            trader_count = 50
+            
+        try:
+            conspiracy_days = max(1, min(30, int(conspiracy_days)))
+        except ValueError:
+            conspiracy_days = 10
         
         if not ca_address or not ca_name:
             flash("请输入CA地址以及名称", "danger")
@@ -335,43 +408,53 @@ def gmgn_tool():
         try:
             print(f"🎯 开始获取备注数据...")
             print(f"📊 Holders数量: {holder_count}, Traders数量: {trader_count}")
+            print(f"🔍 阴谋钱包检测: {'启用' if conspiracy_check else '关闭'}")
             
-            # 获取数据
-            holders = gmgn.fetch_top_holders(chain_id, ca_address, limit=holder_count)
-            traders = gmgn.fetch_top_traders(chain_id, ca_address, limit=trader_count)
+            # 使用新的生成函数
+            result = gmgn.generate_address_remarks(
+                ca_address, 
+                ca_name, 
+                holder_count, 
+                trader_count,
+                conspiracy_check,
+                conspiracy_days
+            )
             
-            # 合并和格式化
-            result = gmgn.merge_and_format(holders, traders, ca_name)
+            normal_remarks = result.get("normal_remarks", [])
+            conspiracy_remarks = result.get("conspiracy_remarks", [])
             
-            # 生成统计信息
-            result_stats = {
-                'total_addresses': len(result),
-                'holder_count': len(holders) if holders else 0,
-                'trader_count': len(traders) if traders else 0,
-                'unique_addresses': len(result)  # merge_and_format已经去重了
+            print(f"🎉 备注数据生成完成!")
+            print(f"📊 普通地址: {len(normal_remarks)} 个")
+            print(f"🐟 阴谋钱包: {len(conspiracy_remarks)} 个")
+            
+            # 保存结果到session
+            session['gmgn_results'] = {
+                'normal_remarks': normal_remarks,
+                'conspiracy_remarks': conspiracy_remarks,
+                'params': {
+                    'ca_address': ca_address,
+                    'ca_name': ca_name,
+                    'holder_count': holder_count,
+                    'trader_count': trader_count,
+                    'conspiracy_check': conspiracy_check,
+                    'conspiracy_days': conspiracy_days
+                }
             }
             
-            # 格式化输出
-            if remark_type == "gmgn":
-                result_json_str = json.dumps(result, ensure_ascii=False, indent=2)
-            else:  # okx格式
-                okx_lines = []
-                for item in result:
-                    addr = item.get("address", "")
-                    name = item.get("name", "")
-                    if addr and name:
-                        okx_lines.append(f"{addr}:{name}")
-                result_json_str = ",".join(okx_lines)
-            
-            print(f"🎉 备注数据生成完成! 总计 {len(result)} 个地址")
+            if conspiracy_check:
+                flash(f"分析完成！普通地址 {len(normal_remarks)} 个，阴谋钱包 {len(conspiracy_remarks)} 个", "success")
+            else:
+                flash(f"分析完成！共生成 {len(normal_remarks)} 个地址备注", "success")
             
         except Exception as e:
             print(f"❌ 查询失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
             flash(f"查询失败: {str(e)}", "danger")
     
     return render_template("gmgn.html", 
-                         result_json_str=result_json_str,
-                         result_stats=result_stats)
+                         normal_remarks=normal_remarks,
+                         conspiracy_remarks=conspiracy_remarks)
 
 # 新增的路由
 @app.route("/solana_analysis", methods=["GET", "POST"])
