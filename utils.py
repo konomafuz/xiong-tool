@@ -9,6 +9,8 @@ import pandas as pd
 from io import BytesIO
 from collections import defaultdict
 import certifi
+# 添加Flask导入
+from flask import send_file
 
 # 禁用SSL警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -140,17 +142,32 @@ def fetch_data(url, params=None):
 
 def export_to_excel(df, filename_prefix):
     """将DataFrame导出为Excel"""
-    if df.empty:
-        return None
+    try:
+        if df.empty:
+            print("❌ DataFrame为空，无法导出")
+            return None
+            
+        print(f"📊 开始导出Excel，数据形状: {df.shape}")
         
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False)
-    output.seek(0)
-    
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name=f"{filename_prefix}_{int(time.time())}.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        # 创建内存中的Excel文件
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='数据')
+        
+        output.seek(0)
+        
+        filename = f"{filename_prefix}_{int(time.time())}.xlsx"
+        print(f"✅ Excel文件准备完成: {filename}")
+        
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+    except Exception as e:
+        print(f"❌ Excel导出失败: {e}")
+        import traceback
+        print(f"📝 详细错误: {traceback.format_exc()}")
+        return None

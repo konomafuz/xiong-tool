@@ -17,13 +17,50 @@ def index():
     """首页"""
     return render_template("index.html")
 
+# 将之前的debug_traders保留，但改为独立功能
+@app.route("/debug_traders", methods=["GET", "POST"])
+def debug_traders():
+    """调试交易者数据结构"""
+    if request.method == "POST":
+        token_address = request.form.get("tokenAddress", "").strip()
+        chain_id = request.form.get("chainId", "501").strip()
+        
+        try:
+            from modules.top_earners import fetch_top_traders
+            
+            traders = fetch_top_traders(token_address, chain_id, 3)  # 只获取3个进行调试
+            
+            if traders:
+                import json
+                debug_info = {
+                    'count': len(traders),
+                    'sample_trader': traders[0],
+                    'all_fields': list(traders[0].keys()) if traders else []
+                }
+                
+                return f"<pre>{json.dumps(debug_info, indent=2, ensure_ascii=False)}</pre>"
+            else:
+                return "没有获取到交易者数据"
+                
+        except Exception as e:
+            import traceback
+            return f"<pre>错误: {e}\n\n{traceback.format_exc()}</pre>"
+    
+    return '''
+    <form method="post">
+        代币地址: <input type="text" name="tokenAddress" value="HtTYHz1Kf3rrQo6AqDLmss7gq5WrkWAaXn3tupUZbonk" style="width:400px">
+        <br><br>链ID: <input type="text" name="chainId" value="501">
+        <br><br><input type="submit" value="调试数据结构">
+    </form>
+    '''
+
+# 恢复原来的top_earners路由
 @app.route("/top_earners", methods=["GET", "POST"])
 def top_earners_view():
     chain_id = request.args.get("chainId", request.form.get("chainId", ""))
     chain_id = chain_id.strip()
     token_address = request.args.get("tokenAddress", request.form.get("tokenAddress", ""))
     token_address = token_address.strip()
-    # 新增limit参数，默认100
     limit = request.args.get("limit", request.form.get("limit", "100"))
     try:
         limit = int(limit)
@@ -32,7 +69,7 @@ def top_earners_view():
 
     if request.method == "POST" and token_address and chain_id:
         try:
-            # 传递limit给数据获取函数
+            # 使用新的数据获取函数
             traders = top_earners.fetch_top_traders(token_address, chain_id=chain_id, limit=limit)
             df = top_earners.prepare_traders_data(traders)
             
@@ -42,40 +79,56 @@ def top_earners_view():
             session['chain_id'] = chain_id
             session['limit'] = limit
             
-            # 添加地址超链接
-            if not df.empty and "holderWalletAddress" in df.columns:
-                df["holderWalletAddress"] = df["holderWalletAddress"].apply(
-                    lambda x: f'<a href="/address/{x}" title="{x}">{x[:5]}...{x[-5:]}</a>'
-                )
+            # 为显示准备数据
+            if not df.empty:
+                # 添加地址超链接
+                if "walletAddress" in df.columns:
+                    df["walletAddress"] = df["walletAddress"].apply(
+                        lambda x: f'<a href="/address/{x}" title="{x}">{x[:5]}...{x[-5:]}</a>' if pd.notna(x) else ""
+                    )
+                elif "holderWalletAddress" in df.columns:
+                    df["holderWalletAddress"] = df["holderWalletAddress"].apply(
+                        lambda x: f'<a href="/address/{x}" title="{x}">{x[:5]}...{x[-5:]}</a>' if pd.notna(x) else ""
+                    )
+                
+                # 添加浏览器链接
+                if "explorerUrl" in df.columns:
+                    df["explorerUrl"] = df["explorerUrl"].apply(
+                        lambda x: f'<a href="{x}" target="_blank">查看</a>' if pd.notna(x) and x else ""
+                    )
+                
+                # 格式化时间戳
+                if "lastTradeTime" in df.columns:
+                    df["lastTradeTime"] = pd.to_datetime(df["lastTradeTime"], unit='ms', errors='coerce')
+                
+                # 格式化数值
+                numeric_columns = ['totalPnl', 'winRate', 'avgProfit', 'avgLoss', 'maxProfit', 'maxLoss']
+                for col in numeric_columns:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors='coerce').round(2)
+                
+                # 显示的关键字段 - 更新为实际可用的字段
+                display_columns = [
+                    "walletAddress", "totalPnl", "totalProfitPercentage", 
+                    "realizedProfit", "realizedProfitPercentage",
+                    "buyCount", "sellCount", "totalCount", 
+                    "buyValue", "sellValue", "holdAmount",
+                    "boughtAvgPrice", "soldAvgPrice",
+                    "tags", "explorerUrl"
+                ]
+                
+                # 过滤出存在的列
+                display_df = df[[col for col in display_columns if col in df.columns]]
+                
+                table_html = display_df.to_html(
+                    classes="table table-hover table-bordered table-striped", 
+                    index=False, 
+                    escape=False,
+                    render_links=True
+                ) if not display_df.empty else ""
+            else:
+                table_html = ""
             
-            # 添加浏览器链接
-            if not df.empty and "explorerUrl" in df.columns:
-                df["explorerUrl"] = df["explorerUrl"].apply(
-                    lambda x: f'<a href="{x}" target="_blank">查看</a>' if x else ""
-                )
-            
-            # 格式化时间戳
-            if not df.empty and "lastTradeTime" in df.columns:
-                df["lastTradeTime"] = pd.to_datetime(df["lastTradeTime"], unit='ms')
-            
-            # 只显示部分关键字段
-            display_columns = [
-                "holderWalletAddress", "explorerUrl", "realizedProfit", "realizedProfitPercentage",
-                "buyCount", "buyValue", "sellCount", "sellValue", "holdAmount", 
-                "holdVolume", "lastTradeTime"
-            ]
-            
-            # 过滤出存在的列
-            display_df = df[[col for col in display_columns if col in df.columns]]
-            
-            table_html = display_df.to_html(
-                classes="table table-hover table-bordered table-striped", 
-                index=False, 
-                escape=False,
-                render_links=True
-            ) if not display_df.empty else ""
-            
-            # 渲染模板时传递limit
             return render_template(
                 "top_earners.html", 
                 table=table_html, 
@@ -88,19 +141,18 @@ def top_earners_view():
             flash(f"查询失败: {str(e)}", "danger")
             return redirect(url_for('top_earners_view'))
 
-    # session恢复时也要传递limit
+    # session恢复逻辑保持不变...
     if 'traders_data' in session and session.get('token_address') == token_address and session.get('chain_id') == chain_id and session.get('limit', 100) == limit:
         df = pd.DataFrame(session['traders_data'])
         
         if not df.empty:
-            # 只显示部分关键字段
+            # 重新应用格式化逻辑
             display_columns = [
-                "holderWalletAddress", "explorerUrl", "realizedProfit", "realizedProfitPercentage",
-                "buyCount", "buyValue", "sellCount", "sellValue", "holdAmount", 
-                "holdVolume", "lastTradeTime"
+                "walletAddress", "holderWalletAddress", "totalPnl", "winRate",
+                "winCount", "lossCount", "totalCount", "avgProfit", "avgLoss",
+                "maxProfit", "maxLoss", "roi", "tags"
             ]
             
-            # 过滤出存在的列
             display_df = df[[col for col in display_columns if col in df.columns]]
             
             table_html = display_df.to_html(
@@ -366,7 +418,6 @@ def download_gmgn_remarks():
     except Exception as e:
         flash(f"导出失败: {str(e)}", "danger")
         return redirect(url_for('gmgn_tool'))
-
 
 @app.route("/gmgn", methods=["GET", "POST"])
 def gmgn_tool():

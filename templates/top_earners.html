@@ -3,68 +3,566 @@
 {% block title %}Top盈利地址 - Smart Money Tracker{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h3 class="mb-0"><i class="fas fa-trophy me-2"></i>Top盈利地址查询</h3>
-        </div>
-        <div class="card-body">
-            <form method="POST">
-                <div class="row g-3 mb-4">
-                    <div class="col-md-4">
-                        <label for="chainId" class="form-label">链ID</label>
-                        <input type="text" class="form-control" id="chainId" name="chainId" 
-                               placeholder="请输入链ID" value="{{ chain_id or '' }}">
-                    </div>
-                    <div class="col-md-4">
-                        <label for="tokenAddress" class="form-label">代币合约地址</label>
-                        <input type="text" class="form-control" id="tokenAddress" name="tokenAddress" 
-                               placeholder="请输入合约地址" value="{{ token or '' }}" required>
-                        <div class="form-text">
-                            示例: HtTYHz1Kf3rrQo6AqDLmss7gq5WrkWAaXn3tupUZbonk
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white border-0">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h3 class="mb-0 fw-bold">
+                                <i class="fas fa-trophy me-3"></i>TOP盈利地址分析
+                            </h3>
+                            <small class="opacity-75">发现链上最成功的交易者</small>
+                        </div>
+                        <div class="col-auto">
+                            <div class="bg-white bg-opacity-20 rounded-pill px-3 py-1">
+                                <i class="fas fa-chart-line me-2"></i>
+                                <span class="small fw-semibold">实时数据</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <label for="limit" class="form-label">查询数量</label>
-                        <input type="number" class="form-control" id="limit" name="limit" 
-                               placeholder="请输入查询数量" value="{{ limit or 100 }}" min="1" max="1000">
-                    </div>
-                    <div class="col-md-4 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-search me-2"></i>查询
-                        </button>
-                    </div>
                 </div>
-            </form>
+                
+                <div class="card-body p-4">
+                    <!-- 查询表单 -->
+                    <form method="POST" action="{{ url_for('top_earners_view') }}" id="topProfitForm" class="needs-validation" novalidate>
+                        <div class="row g-4 mb-4">
+                            <!-- 区块链选择 -->
+                            <div class="col-md-3">
+                                <label for="chainId" class="form-label fw-semibold text-muted">
+                                    <i class="fas fa-link me-2"></i>区块链网络
+                                </label>
+                                <select class="form-select form-select-lg shadow-sm" id="chainId" name="chainId" required>
+                                    <option value="">选择网络</option>
+                                    <option value="501" {{ 'selected' if chain_id == '501' else '' }}>
+                                        🟣 Solana (SOL)
+                                    </option>
+                                    <option value="1" {{ 'selected' if chain_id == '1' else '' }}>
+                                        🔵 Ethereum (ETH)
+                                    </option>
+                                    <option value="56" {{ 'selected' if chain_id == '56' else '' }}>
+                                        🟡 BSC (BNB)
+                                    </option>
+                                </select>
+                                <div class="invalid-feedback">
+                                    请选择区块链网络
+                                </div>
+                            </div>
 
-            {% if record_count is defined %}
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="d-flex align-items-center">
-                        <span class="badge bg-primary rounded-pill me-2">{{ record_count }}</span>
-                        <span>条记录</span>
-                    </div>
-                    <form method="POST" action="/download_top_earners">
-                        <input type="hidden" name="tokenAddress" value="{{ token }}">
-                        <input type="hidden" name="chainId" value="{{ chain_id }}">
-                        <input type="hidden" name="limit" value="{{ limit or 100 }}">
-                        <button class="btn btn-success">
-                            <i class="fas fa-file-excel me-2"></i>导出完整数据
-                        </button>
+                            <!-- 代币地址输入 -->
+                            <div class="col-md-5">
+                                <label for="tokenAddress" class="form-label fw-semibold text-muted">
+                                    <i class="fas fa-coins me-2"></i>代币合约地址
+                                </label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text bg-light border-end-0">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                    <input type="text" 
+                                           class="form-control border-start-0 shadow-sm" 
+                                           id="tokenAddress" 
+                                           name="tokenAddress" 
+                                           placeholder="输入代币合约地址"
+                                           value="{{ token or '' }}" 
+                                           required>
+                                    <div class="invalid-feedback">
+                                        请输入有效的代币合约地址
+                                    </div>
+                                </div>
+                                <div class="form-text text-muted small">
+                                    <i class="fas fa-lightbulb me-1"></i>
+                                    <span id="addressHint">示例: HtTYHz1Kf3rrQo6AqDLmss7gq5WrkWAaXn3tupUZbonk</span>
+                                </div>
+                            </div>
+
+                            <!-- 查询数量 -->
+                            <div class="col-md-2">
+                                <label for="limit" class="form-label fw-semibold text-muted">
+                                    <i class="fas fa-hashtag me-2"></i>查询数量
+                                </label>
+                                <select class="form-select form-select-lg shadow-sm" id="limit" name="limit">
+                                    <option value="50" {{ 'selected' if limit == 50 else '' }}>50</option>
+                                    <option value="100" {{ 'selected' if limit == 100 or not limit else '' }}>100</option>
+                                    <option value="200" {{ 'selected' if limit == 200 else '' }}>200</option>
+                                    <option value="500" {{ 'selected' if limit == 500 else '' }}>500</option>
+                                    <option value="1000" {{ 'selected' if limit == 1000 else '' }}>1000</option>
+                                </select>
+                            </div>
+
+                            <!-- 查询按钮 -->
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm position-relative overflow-hidden">
+                                    <span class="btn-content">
+                                        <i class="fas fa-rocket me-2"></i>开始分析
+                                    </span>
+                                    <span class="btn-loading d-none">
+                                        <i class="fas fa-spinner fa-spin me-2"></i>分析中...
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
                     </form>
-                </div>
-            {% endif %}
 
-            {% if table %}
-                <div class="table-responsive">
-                    {{ table | safe }}
+                    <!-- 快速选择示例 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card bg-light border-0">
+                                <div class="card-body py-3">
+                                    <h6 class="mb-2 text-muted fw-semibold">
+                                        <i class="fas fa-star me-2"></i>热门代币快速选择
+                                    </h6>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button" class="btn btn-outline-primary btn-sm quick-select" 
+                                                data-chain="501" 
+                                                data-address="HtTYHz1Kf3rrQo6AqDLmss7gq5WrkWAaXn3tupUZbonk"
+                                                data-name="MOO DENG">
+                                            🟣 MOO DENG
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm quick-select" 
+                                                data-chain="501" 
+                                                data-address="DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+                                                data-name="BONK">
+                                            🟣 BONK
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm quick-select" 
+                                                data-chain="1" 
+                                                data-address="0xa0c3ef24414ed9c9b456740128d8e63d016a9e11"
+                                                data-name="PEPE">
+                                            🔵 PEPE
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm quick-select" 
+                                                data-chain="1" 
+                                                data-address="0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce"
+                                                data-name="SHIB">
+                                            🔵 SHIB
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 结果展示区域 -->
+                    {% if record_count is defined %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-0 bg-success bg-opacity-10">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-8">
+                                            <h5 class="mb-2 text-success fw-bold">
+                                                <i class="fas fa-check-circle me-2"></i>分析完成
+                                            </h5>
+                                            <div class="row text-muted small">
+                                                <div class="col-md-4">
+                                                    <strong>代币地址:</strong> {{ (token[:10] + '...' + token[-10:]) if token|length > 20 else token }}
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <strong>区块链:</strong> 
+                                                    {% if chain_id == '501' %}🟣 Solana{% endif %}
+                                                    {% if chain_id == '1' %}🔵 Ethereum{% endif %}
+                                                    {% if chain_id == '56' %}🟡 BSC{% endif %}
+                                                    {% if chain_id == '137' %}🟣 Polygon{% endif %}
+                                                    {% if chain_id == '42161' %}🔵 Arbitrum{% endif %}
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <strong>记录数:</strong> {{ record_count }} 条
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 text-end">
+                                            <form method="POST" action="{{ url_for('download_top_earners') }}" style="display: inline;">
+                                                <input type="hidden" name="tokenAddress" value="{{ token }}">
+                                                <input type="hidden" name="chainId" value="{{ chain_id }}">
+                                                <input type="hidden" name="limit" value="{{ limit or 100 }}">
+                                                <button class="btn btn-success btn-lg shadow-sm">
+                                                    <i class="fas fa-file-excel me-2"></i>导出Excel
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 表格展示 -->
+                    {% if table %}
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white border-bottom">
+                                <h5 class="mb-0 fw-semibold text-dark">
+                                    <i class="fas fa-table me-2"></i>TOP盈利交易者
+                                </h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    {{ table | safe }}
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="fas fa-chart-line fa-3x text-muted opacity-50"></i>
+                            </div>
+                            <h5 class="text-muted mb-3">开始你的链上分析之旅</h5>
+                            <p class="text-muted">
+                                选择区块链网络并输入代币合约地址，发现最成功的交易者策略
+                            </p>
+                            <div class="row mt-4 text-start">
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="bg-primary bg-opacity-10 rounded-circle p-3 me-3">
+                                            <i class="fas fa-search text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-1">精准查询</h6>
+                                            <small class="text-muted">输入代币地址获取TOP交易者</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="bg-success bg-opacity-10 rounded-circle p-3 me-3">
+                                            <i class="fas fa-chart-bar text-success"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-1">详细数据</h6>
+                                            <small class="text-muted">盈亏、胜率、交易次数等</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="bg-info bg-opacity-10 rounded-circle p-3 me-3">
+                                            <i class="fas fa-download text-info"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-1">数据导出</h6>
+                                            <small class="text-muted">支持Excel格式导出分析</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
-            {% else %}
-                <div class="alert alert-info mt-4">
-                    <i class="fas fa-info-circle me-2"></i>
-                    请输入代币合约地址查询顶级盈利地址。查询结果将显示该代币上盈利最高的交易者及其交易详情。
-                </div>
-            {% endif %}
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+/* 渐变背景 */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 按钮动画效果 */
+.btn {
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+/* 表单控件样式 */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #e3e6f0;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* 输入组样式 */
+.input-group-text {
+    border-radius: 8px 0 0 8px;
+    background: #f8f9fc;
+}
+
+/* 卡片阴影 */
+.card {
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.shadow-lg {
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+}
+
+/* 表格样式 */
+.table {
+    font-size: 0.9rem;
+    margin-bottom: 0;
+}
+
+.table th {
+    background-color: #f8f9fc;
+    font-weight: 600;
+    border-top: none;
+    color: #5a5c69;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.table td, .table th {
+    padding: 1rem 0.75rem;
+    vertical-align: middle;
+    border-color: #e3e6f0;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(102, 126, 234, 0.05);
+}
+
+/* 快速选择按钮 */
+.quick-select {
+    border-radius: 20px;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.quick-select:hover {
+    transform: scale(1.05);
+}
+
+/* 地址格式提示 */
+.address-hint {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.address-warning {
+    color: #ffc107;
+    font-weight: 500;
+}
+
+/* 加载动画 */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.btn-loading {
+    animation: pulse 1.5s infinite;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 0.5rem;
+    }
+    
+    .card-body {
+        padding: 1.5rem;
+    }
+    
+    .btn-lg {
+        padding: 0.5rem 1rem;
+    }
+}
+</style>
+
+<script>
+// 表单验证和提交处理
+(function() {
+    'use strict';
+    
+    const form = document.getElementById('topProfitForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const btnContent = submitBtn.querySelector('.btn-content');
+    const btnLoading = submitBtn.querySelector('.btn-loading');
+    const chainSelect = document.getElementById('chainId');
+    const tokenInput = document.getElementById('tokenAddress');
+    const addressHint = document.getElementById('addressHint');
+    
+    // 不同链的地址示例
+    const addressExamples = {
+        '501': 'HtTYHz1Kf3rrQo6AqDLmss7gq5WrkWAaXn3tupUZbonk (Solana)',
+        '1': '0xa0c3ef24414ed9c9b456740128d8e63d016a9e11 (Ethereum)',
+        '56': '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82 (BSC)',
+        '137': '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270 (Polygon)',
+        '42161': '0x82af49447d8a07e3bd95bd0d56f35241523fbab1 (Arbitrum)'
+    };
+    
+    // 检查是否是ETH类地址格式 (0x开头，42位长度)
+    function isEthAddress(address) {
+        return /^0x[a-fA-F0-9]{40}$/.test(address);
+    }
+    
+    // 检查是否是Solana地址格式 (Base58编码，32-44位长度)
+    function isSolanaAddress(address) {
+        return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+    }
+    
+    // 更新地址示例和验证
+    function updateAddressHint() {
+        const selectedChain = chainSelect.value;
+        if (selectedChain && addressExamples[selectedChain]) {
+            addressHint.textContent = `示例: ${addressExamples[selectedChain]}`;
+        } else {
+            addressHint.textContent = '请先选择区块链网络';
+        }
+    }
+    
+    // 自动格式化地址
+    function formatAddress() {
+        const chainId = chainSelect.value;
+        let address = tokenInput.value.trim();
+        
+        if (!address || !chainId) return;
+        
+        // 对于ETH类链（Ethereum, BSC, Polygon, Arbitrum），自动转换为小写
+        const ethChains = ['1', '56', '137', '42161'];
+        if (ethChains.includes(chainId)) {
+            if (address.startsWith('0x') || address.startsWith('0X')) {
+                const formattedAddress = address.toLowerCase();
+                if (formattedAddress !== address) {
+                    tokenInput.value = formattedAddress;
+                    
+                    // 显示格式化提示
+                    showFormatNotification('地址已自动转换为小写格式');
+                }
+            }
+        }
+        
+        // 地址格式验证提示
+        validateAddressFormat(address, chainId);
+    }
+    
+    // 验证地址格式
+    function validateAddressFormat(address, chainId) {
+        const ethChains = ['1', '56', '137', '42161'];
+        let isValid = false;
+        let message = '';
+        
+        if (ethChains.includes(chainId)) {
+            isValid = isEthAddress(address);
+            message = isValid ? '✓ ETH地址格式正确' : '⚠️ 请输入有效的ETH地址 (0x开头，40位十六进制)';
+        } else if (chainId === '501') {
+            isValid = isSolanaAddress(address);
+            message = isValid ? '✓ Solana地址格式正确' : '⚠️ 请输入有效的Solana地址';
+        }
+        
+        // 更新提示样式
+        if (address) {
+            addressHint.innerHTML = `<i class="fas ${isValid ? 'fa-check-circle' : 'fa-exclamation-triangle'} me-1"></i>${message}`;
+            addressHint.className = `form-text small ${isValid ? 'address-hint' : 'address-warning'}`;
+        } else {
+            updateAddressHint();
+            addressHint.className = 'form-text text-muted small';
+        }
+    }
+    
+    // 显示格式化通知
+    function showFormatNotification(message) {
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-info alert-dismissible fade show position-fixed';
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            <i class="fas fa-info-circle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(notification);
+        
+        // 3秒后自动消失
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+    
+    // 监听链选择变化
+    chainSelect.addEventListener('change', function() {
+        updateAddressHint();
+        if (tokenInput.value.trim()) {
+            formatAddress();
+        }
+    });
+    
+    // 监听地址输入变化
+    tokenInput.addEventListener('input', function() {
+        // 延迟执行，避免频繁触发
+        clearTimeout(this.formatTimer);
+        this.formatTimer = setTimeout(formatAddress, 500);
+    });
+    
+    // 监听地址输入框失去焦点
+    tokenInput.addEventListener('blur', formatAddress);
+    
+    // 快速选择功能
+    document.querySelectorAll('.quick-select').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const chain = this.dataset.chain;
+            const address = this.dataset.address;
+            const name = this.dataset.name;
+            
+            chainSelect.value = chain;
+            tokenInput.value = address;
+            
+            // 更新地址提示
+            updateAddressHint();
+            validateAddressFormat(address, chain);
+            
+            // 添加选中效果
+            document.querySelectorAll('.quick-select').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // 显示提示
+            showFormatNotification(`已选择 ${name}，点击"开始分析"查询数据`);
+        });
+    });
+    
+    // 表单提交处理
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        if (!form.checkValidity()) {
+            event.stopPropagation();
+            form.classList.add('was-validated');
+            return;
+        }
+        
+        const tokenAddress = tokenInput.value.trim();
+        const chainId = chainSelect.value;
+        
+        if (!tokenAddress || !chainId) {
+            alert('请选择区块链网络并输入代币地址');
+            return;
+        }
+        
+        // 最后一次地址格式化
+        formatAddress();
+        
+        // 显示加载状态
+        submitBtn.disabled = true;
+        btnContent.classList.add('d-none');
+        btnLoading.classList.remove('d-none');
+        
+        // 提交表单
+        setTimeout(() => {
+            form.submit();
+        }, 100);
+    });
+    
+    // 初始化
+    updateAddressHint();
+    
+    // Bootstrap 5 表单验证
+    form.classList.add('was-validated');
+})();
+</script>
 {% endblock %}

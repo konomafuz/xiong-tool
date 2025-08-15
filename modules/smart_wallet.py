@@ -56,41 +56,12 @@ def fetch_wallet_profile(chain_id, wallet_address, period_type=5):
         print(f"❌ 钱包 {wallet_address[:8]}... 请求异常: {e}")
         return None
 
-def fetch_twitter_info(wallet_address):
-    """获取钱包Twitter信息"""
-    url = "https://web3.okx.com/priapi/v1/dx/twitter/wallet"
-    
-    params = {
-        "walletAddress": wallet_address,
-        "t": int(time.time() * 1000)
-    }
-    
-    try:
-        response = fetch_data_robust(url, params, max_retries=2, timeout=15)
-        
-        if response and response.get('code') == 0:
-            data = response.get('data', {})
-            if data.get('twitter_name'):
-                print(f"✅ 钱包 {wallet_address[:8]}... Twitter信息获取成功: {data.get('twitter_name')}")
-                return data
-            else:
-                print(f"⚪ 钱包 {wallet_address[:8]}... 无Twitter信息")
-                return None
-        else:
-            print(f"❌ 钱包 {wallet_address[:8]}... Twitter信息获取失败")
-            return None
-            
-    except Exception as e:
-        print(f"❌ 钱包 {wallet_address[:8]}... Twitter请求异常: {e}")
-        return None
-
-def generate_smart_wallet_remark(wallet_address, wallet_data, twitter_info=None, existing_label=None):
+def generate_smart_wallet_remark(wallet_address, wallet_data, existing_label=None):
     """生成聪明钱包标记
     
     Args:
         wallet_address: 钱包地址
         wallet_data: 钱包数据 (来自wallet_profile API)
-        twitter_info: Twitter信息 (可选)
         existing_label: 已有标记 (可选)
     
     Returns:
@@ -108,17 +79,21 @@ def generate_smart_wallet_remark(wallet_address, wallet_data, twitter_info=None,
         if len(win_rate_list) >= 5:
             win_rate_3m = win_rate_list[4]  # 3月胜率 (索引4)
         
-        # 生成基础标记
-        if twitter_info and twitter_info.get('twitter_name'):
-            # 有Twitter信息的格式: twitter_name"-月 "totalWinRate"-季 "totalWinRate"-"follow_count"关注
-            twitter_name = twitter_info.get('twitter_name', '')
-            follow_count = twitter_info.get('follow_count', 0)
-            base_remark = f"{twitter_name}-月{win_rate_1m}-季{win_rate_3m}-{follow_count}关注"
-        else:
-            # 无Twitter信息的格式: 钱包前4个字母-月 "totalWinRate"-季 "totalWinRate"
-            wallet_prefix = wallet_address[:4]
-            base_remark = f"{wallet_prefix}-月{win_rate_1m}-季{win_rate_3m}"
+        # 获取总盈利
+        total_pnl = wallet_data.get('totalPnl', 0)
         
+        # 生成基础标记：钱包前4位-月胜率-季胜率-盈利
+        wallet_prefix = wallet_address[:4]
+        
+        # 格式化盈利数值
+        if total_pnl >= 1000000:
+            pnl_str = f"{total_pnl/1000000:.1f}M"
+        elif total_pnl >= 1000:
+            pnl_str = f"{total_pnl/1000:.1f}k"
+        else:
+            pnl_str = f"{total_pnl:.0f}"
+        
+        base_remark = f"{wallet_prefix}-月{win_rate_1m}-季{win_rate_3m}-{pnl_str}"
         # 如果有已存在的标记，添加到后面
         if existing_label:
             final_remark = f"{base_remark}-{existing_label}"
@@ -259,38 +234,39 @@ def analyze_address_list(address_list_text, chain_id="501"):
                 })
                 continue
             
-            # 获取Twitter信息
-            print(f"🐦 获取Twitter信息...")
-            twitter_info = fetch_twitter_info(address)
-            
             # 生成标记（包含已有标记）
-            remark = generate_smart_wallet_remark(address, wallet_data, twitter_info, existing_label)
+            remark = generate_smart_wallet_remark(address, wallet_data, existing_label)
             
             # 简单的智能判断（基于胜率）
             total_win_rate = float(wallet_data.get('totalWinRate', 0))
-            if total_win_rate >= 30:
+            total_pnl = float(wallet_data.get('totalPnl', 0))
+            
+            if total_win_rate >= 30 and total_pnl >= 10000:
+                emoji = "🚀"
+                reason = f"胜率{total_win_rate}% | 盈利{total_pnl:.0f}USD"
+            elif total_win_rate >= 20 and total_pnl >= 5000:
                 emoji = "💎"
-                reason = f"胜率{total_win_rate}%"
-            elif total_win_rate >= 20:
+                reason = f"胜率{total_win_rate}% | 盈利{total_pnl:.0f}USD"
+            elif total_win_rate >= 10:
                 emoji = "🔍"
-                reason = f"胜率{total_win_rate}%"
+                reason = f"胜率{total_win_rate}% | 盈利{total_pnl:.0f}USD"
             else:
                 emoji = "⚪"
-                reason = f"胜率{total_win_rate}%"
+                reason = f"胜率{total_win_rate}% | 盈利{total_pnl:.0f}USD"
             
             results.append({
                 "address": address,
                 "remark": remark,
                 "emoji": emoji,
                 "reason": reason,
-                "twitter_info": twitter_info,
+                "twitter_info": None,  # 已删除Twitter功能
                 "existing_label": existing_label
             })
             
             print(f"✅ 生成标记: {remark}")
             
             # 延迟避免频率限制
-            time.sleep(1)
+            time.sleep(0.5)
             
         except Exception as e:
             print(f"❌ 分析地址失败: {e}")
@@ -357,7 +333,6 @@ CyaE1VxvBrahnPWkqm5VsdCvyS2QmNht2UFrKJHga54o:NYAN-盈利46.04k
         print(f"标记: {result['remark']}")
         print(f"原因: {result['reason']}")
         print(f"已有标记: {result['existing_label'] or '无'}")
-        print(f"Twitter: {result['twitter_info'].get('twitter_name') if result['twitter_info'] else '无'}")
         print("-" * 50)
 
 if __name__ == "__main__":
