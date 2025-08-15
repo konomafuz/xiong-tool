@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "description": "钱包标签识别配置表",
+  "tags": {
+    "单一币钱包": {
+      "emoji": "💰",
+      "short": "单币",
+      "group": "none",
+      "priority": 1
+    },
+    "高频交易者": {
+      "emoji": "⚡",
+      "short": "高频",
+      "group": "交易频率",
+      "priority": 3
+    },
+    "中频交易者": {
+      "emoji": "🚀",
+      "short": "中频",
+      "group": "交易频率",
+      "priority": 4
+    },
+    "低频交易者": {
+      "emoji": "🐢",
+      "short": "低频",
+      "group": "交易频率",
+      "priority": 5
+    },
+    "休眠交易者": {
+      "emoji": "💤",
+      "short": "休眠",
+      "group": "交易频率",
+      "priority": 6
+    },
+    "新兴聪明交易者": {
+      "emoji": "🧠",
+      "short": "聪明",
+      "group": "none",
+      "priority": 7
+    },
+    "钓鱼钱包": {
+      "emoji": "🎣",
+      "short": "钓鱼",
+      "group": "none",
+      "priority": 10
+    },
+    "新钱包": {
+      "emoji": "🆕",
+      "short": "新",
+      "group": "none",
+      "priority": 2
+    }
+  },
+  "exclusive_groups": {
+    "交易频率": ["高频交易者", "中频交易者", "低频交易者", "休眠交易者"]
+  }
+}

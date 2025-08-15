@@ -1,0 +1,985 @@
+{% extends "base.html" %}
+
+{% block title %}钱包分析器 - Smart Money Tracker{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-11">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white border-0">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h3 class="mb-0 fw-bold">
+                                <i class="fas fa-brain me-3"></i>钱包智能分析器
+                            </h3>
+                            <small class="opacity-75">自动识别钱包特征并生成智能标签</small>
+                        </div>
+                        <div class="col-auto">
+                            <div class="bg-white bg-opacity-20 rounded-pill px-3 py-1">
+                                <i class="fas fa-tags me-2"></i>
+                                <span class="small fw-semibold">智能标签系统</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-4">
+                    <!-- 输入表单 -->
+                    <form method="POST" action="{{ url_for('wallet_analyzer') }}" id="walletAnalyzerForm">
+                        <div class="row g-4 mb-4">
+                            <!-- 链选择 -->
+                            <div class="col-md-2">
+                                <label for="chainId" class="form-label fw-semibold text-muted">
+                                    <i class="fas fa-link me-2"></i>区块链
+                                </label>
+                                <select class="form-select shadow-sm" id="chainId" name="chainId" required>
+                                    <option value="501" {{ 'selected' if chain_id == '501' else '' }}>🟣 Solana</option>
+                                    <option value="1" {{ 'selected' if chain_id == '1' else '' }}>🔵 Ethereum</option>
+                                    <option value="56" {{ 'selected' if chain_id == '56' else '' }}>🟡 BSC</option>
+                                </select>
+                            </div>
+
+                            <!-- 备注处理选项 -->
+                            <div class="col-md-2">
+                                <label for="preserveRemarks" class="form-label fw-semibold text-muted">
+                                    <i class="fas fa-comment me-2"></i>备注处理
+                                </label>
+                                <select class="form-select shadow-sm" id="preserveRemarks" name="preserveRemarks">
+                                    <option value="overwrite" {{ 'selected' if preserve_remarks == 'overwrite' else '' }}>覆盖原备注</option>
+                                    <option value="append" {{ 'selected' if preserve_remarks == 'append' else '' }}>追加到后面</option>
+                                    <option value="prepend">添加到前面</option>
+                                </select>
+                            </div>
+
+                            <!-- 地址输入 -->
+                            <div class="col-md-6">
+                                <label for="walletAddresses" class="form-label fw-semibold text-muted">
+                                    <i class="fas fa-wallet me-2"></i>钱包地址列表
+                                </label>
+                                <textarea class="form-control shadow-sm" 
+                                         id="walletAddresses" 
+                                         name="walletAddresses" 
+                                         rows="4" 
+                                         placeholder="支持格式：&#10;纯地址: 38tAutsiZWaJ8MsMJVgKCx4U5LHwZM2g6StmQpKLRqz6&#10;带备注: GpMZbSM2GgvTKHJirzeGfMFoaZ8UR2X7F4v8vHTvxFbL:kori-持2.6%&#10;复杂备注: WinLrk2oddUtCfyGsLo4ajjxZGy6pwzDugFiE5PJNiU:kori-持1.7%-盈122.7k" 
+                                         required>{{ wallet_addresses or '' }}</textarea>
+                                <div class="form-text text-muted small">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    支持 <code>地址:备注</code> 格式，每行一个，最多10个地址
+                                </div>
+                            </div>
+
+                            <!-- 分析按钮 -->
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100 shadow-sm">
+                                    <i class="fas fa-magic me-2"></i>开始分析
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- 分析结果 -->
+                    {% if results %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="alert alert-success border-0">
+                                <h5 class="mb-2 text-success fw-bold">
+                                    <i class="fas fa-check-circle me-2"></i>分析完成
+                                </h5>
+                                <p class="mb-0">成功分析了 {{ results|length }} 个钱包地址</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 数据标签选择器 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0 fw-semibold">
+                                        <i class="fas fa-cogs me-2"></i>全局数据标签设置（最多选择3个）
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <h6 class="text-primary mb-2">
+                                                <i class="fas fa-percentage me-1"></i>胜率指标
+                                            </h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <div class="form-check">
+                                                    <input class="form-check-input global-data-checkbox" type="checkbox" 
+                                                           value="win_rate_7d" id="globalWinRate7d">
+                                                    <label class="form-check-label" for="globalWinRate7d">
+                                                        7D胜率
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input global-data-checkbox" type="checkbox" 
+                                                           value="win_rate_30d" id="globalWinRate30d">
+                                                    <label class="form-check-label" for="globalWinRate30d">
+                                                        30D胜率
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-4">
+                                            <h6 class="text-success mb-2">
+                                                <i class="fas fa-coins me-1"></i>收益指标
+                                            </h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <div class="form-check">
+                                                    <input class="form-check-input global-data-checkbox" type="checkbox" 
+                                                           value="pnl_7d" id="globalPnl7d">
+                                                    <label class="form-check-label" for="globalPnl7d">
+                                                        7D收益
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input global-data-checkbox" type="checkbox" 
+                                                           value="pnl_30d" id="globalPnl30d">
+                                                    <label class="form-check-label" for="globalPnl30d">
+                                                        30D收益
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-4">
+                                            <h6 class="text-warning mb-2">
+                                                <i class="fas fa-chart-line me-1"></i>ROI指标
+                                            </h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <div class="form-check">
+                                                    <input class="form-check-input global-data-checkbox" type="checkbox" 
+                                                           value="roi_7d" id="globalRoi7d">
+                                                    <label class="form-check-label" for="globalRoi7d">
+                                                        7D ROI
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input global-data-checkbox" type="checkbox" 
+                                                           value="roi_30d" id="globalRoi30d">
+                                                    <label class="form-check-label" for="globalRoi30d">
+                                                        30D ROI
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row mt-3">
+                                        <div class="col-12">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div class="selected-count text-muted small">
+                                                    已选择 <span id="selectedCount">0</span>/3 个指标
+                                                </div>
+                                                <div class="d-flex gap-2">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearGlobalSelection()">
+                                                        <i class="fas fa-eraser me-1"></i>清空选择
+                                                    </button>
+                                                    <button type="button" class="btn btn-primary btn-sm" onclick="applyGlobalSelection()">
+                                                        <i class="fas fa-check me-1"></i>应用到所有钱包
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 钱包分析表格 -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom">
+                            <div class="row align-items-center">
+                                <div class="col">
+                                    <h5 class="mb-0 fw-semibold text-dark">
+                                        <i class="fas fa-table me-2"></i>钱包标签分析
+                                    </h5>
+                                </div>
+                                <div class="col-auto d-flex gap-2">
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="clearAllRemarks()">
+                                        <i class="fas fa-eraser me-1"></i>清空所有备注
+                                    </button>
+                                    <button class="btn btn-success btn-sm" onclick="exportResults()">
+                                        <i class="fas fa-download me-1"></i>导出结果
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0" id="walletAnalysisTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="4%" class="fw-semibold">#</th>
+                                            <th width="18%" class="fw-semibold">
+                                                <i class="fas fa-wallet me-1"></i>钱包地址
+                                            </th>
+                                            <th width="12%" class="fw-semibold">
+                                                <i class="fas fa-dollar-sign me-1"></i>持仓价值
+                                            </th>
+                                            <th width="24%" class="fw-semibold">
+                                                <i class="fas fa-chart-line me-1"></i>多维度数据
+                                            </th>
+                                            <th width="18%" class="fw-semibold">
+                                                <i class="fas fa-robot me-1"></i>系统标签
+                                            </th>
+                                            <th width="24%" class="fw-semibold">
+                                                <i class="fas fa-comment me-1"></i>生成备注
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for result in results %}
+                                        <tr data-address="{{ result.address }}" class="wallet-row">
+                                            <td class="fw-bold text-primary">{{ loop.index }}</td>
+                                            
+                                            <!-- 钱包地址 -->
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="me-2">
+                                                        <div class="wallet-avatar">
+                                                            {{ result.address[:2] }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex-grow-1 min-width-0">
+                                                        <code class="small fw-bold d-block text-truncate">{{ result.address[:8] }}...{{ result.address[-6:] }}</code>
+                                                        <div class="small text-muted">{{ result.chain_id }}</div>
+                                                        {% if result.stats.get('star_level') and result.stats.get('high_profit_tokens', 0) > 0 %}
+                                                        <div class="small text-warning">
+                                                            {{ result.stats.get('star_level') }} {{ result.stats.get('high_profit_tokens') }}币盈利>1w
+                                                        </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <button class="btn btn-link btn-sm p-1" onclick="copyAddress('{{ result.address }}')" title="复制地址">
+                                                        <i class="fas fa-copy text-muted"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            
+                                            <!-- 持仓价值 -->
+                                            <td>
+                                                {% if result.stats.total_balance_usd > 0 %}
+                                                    <div class="balance-container">
+                                                        <span class="balance-amount fw-bold">
+                                                            {% if result.stats.total_balance_usd >= 1000000 %}
+                                                                ${{ "%.2f"|format(result.stats.total_balance_usd / 1000000) }}M
+                                                            {% elif result.stats.total_balance_usd >= 1000 %}
+                                                                ${{ "%.0f"|format(result.stats.total_balance_usd / 1000) }}K
+                                                            {% else %}
+                                                                ${{ "%.0f"|format(result.stats.total_balance_usd) }}
+                                                            {% endif %}
+                                                        </span>
+                                                        <div class="small text-muted">{{ result.stats.effective_token_count or 0 }} 币</div>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="text-muted small">-</span>
+                                                {% endif %}
+                                            </td>
+                                            
+                                            <!-- 多维度数据 -->
+                                            <td>
+                                                <div class="multi-data-container" data-address="{{ result.address }}">
+                                                    <!-- 胜率数据 -->
+                                                    <div class="data-group mb-2">
+                                                        <div class="data-label small text-muted fw-semibold">
+                                                            <i class="fas fa-percentage me-1"></i>胜率
+                                                        </div>
+                                                        <div class="data-values d-flex gap-1">
+                                                            {% set win_rates = result.stats.get('win_rates', {}) %}
+                                                            <span class="data-chip" data-period="7d" data-type="win_rate" data-value="{{ win_rates.get('7d', 0) }}">
+                                                                7D: {{ "%.1f"|format(win_rates.get('7d', 0)) }}%
+                                                            </span>
+                                                            <span class="data-chip" data-period="30d" data-type="win_rate" data-value="{{ win_rates.get('30d', 0) }}">
+                                                                30D: {{ "%.1f"|format(win_rates.get('30d', 0)) }}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                
+                                                    <!-- 收益数据 -->
+                                                    <div class="data-group mb-2">
+                                                        <div class="data-label small text-muted fw-semibold">
+                                                            <i class="fas fa-coins me-1"></i>收益
+                                                        </div>
+                                                        <div class="data-values d-flex gap-1">
+                                                            {% set total_pnls = result.stats.get('total_pnls', {}) %}
+                                                            <span class="data-chip" data-period="7d" data-type="pnl" data-value="{{ total_pnls.get('7d', 0) }}">
+                                                                7D: ${{ "%.0f"|format(total_pnls.get('7d', 0)) }}
+                                                            </span>
+                                                            <span class="data-chip" data-period="30d" data-type="pnl" data-value="{{ total_pnls.get('30d', 0) }}">
+                                                                30D: ${{ "%.0f"|format(total_pnls.get('30d', 0)) }}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                
+                                                    <!-- ROI数据 -->
+                                                    <div class="data-group">
+                                                        <div class="data-label small text-muted fw-semibold">
+                                                            <i class="fas fa-chart-line me-1"></i>ROI
+                                                        </div>
+                                                        <div class="data-values d-flex gap-1">
+                                                            {% set total_rois = result.stats.get('total_rois', {}) %}
+                                                            <span class="data-chip" data-period="7d" data-type="roi" data-value="{{ total_rois.get('7d', 0) }}">
+                                                                7D: {{ "%.1f"|format(total_rois.get('7d', 0)) }}%
+                                                            </span>
+                                                            <span class="data-chip" data-period="30d" data-type="roi" data-value="{{ total_rois.get('30d', 0) }}">
+                                                                30D: {{ "%.1f"|format(total_rois.get('30d', 0)) }}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            
+                                            <!-- 系统标签 -->
+                                            <td>
+                                                <div class="d-flex flex-wrap gap-1 auto-tags-container" data-address="{{ result.address }}">
+                                                    {% for tag in result.detected_tags %}
+                                                    <span class="badge auto-tag" data-tag="{{ tag }}">
+                                                        {% set tag_detail = result.tag_details.get(tag, {}) %}
+                                                        {% if tag_detail.get('emoji') %}
+                                                            <span class="tag-emoji">{{ tag_detail.get('emoji') }}</span>
+                                                        {% endif %}
+                                                        {{ tag }}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                            </td>
+                                            
+                                            <!-- 生成备注 -->
+                                            <td>
+                                                <div class="remark-container">
+                                                    <div class="input-group">
+                                                        <input type="text" 
+                                                               class="form-control form-control-sm remark-input" 
+                                                               data-address="{{ result.address }}"
+                                                               data-original-remark="{{ result.get('original_remark', '') }}"
+                                                               data-balance-millions="{{ result.stats.get('balance_millions', 0) }}"
+                                                               data-has-large-holding="{{ result.stats.get('has_large_holding', False)|lower }}"
+                                                               placeholder="自动生成..."
+                                                               maxlength="80">
+                                                        <button class="btn btn-outline-secondary btn-sm" 
+                                                                type="button" 
+                                                                onclick="toggleRemarkMode('{{ result.address }}')"
+                                                                title="编辑/锁定">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div class="form-text small d-flex justify-content-between">
+                                                        <span class="char-count">0/80</span>
+                                                        <span class="mode-indicator">自动模式</span>
+                                                    </div>
+                                                    
+                                                    <!-- 已选择的数据指标 -->
+                                                    <div class="selected-data-indicators mt-1" data-address="{{ result.address }}">
+                                                        <!-- 选中的数据指标会显示在这里 -->
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 标签说明面板 -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-info-circle me-2"></i>标签识别规则 & 使用说明
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <h6 class="text-primary">💰 资产特征</h6>
+                                            <ul class="small mb-0">
+                                                <li><strong>单币</strong>：有效持仓币种≤3个</li>
+                                                <li><strong>新</strong>：创建时间≤30天</li>
+                                                <li><strong>钓鱼</strong>：持有但未购买的代币</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <h6 class="text-success">📈 交易特征</h6>
+                                            <ul class="small mb-0">
+                                                <li><strong>高频</strong>：7D交易≥200次</li>
+                                                <li><strong>低频</strong>：7D交易1-199次</li>
+                                                <li><strong>休眠</strong>：30D无交易记录</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <h6 class="text-warning">🧠 智能特征</h6>
+                                            <ul class="small mb-0">
+                                                <li><strong>🧠聪明</strong>：7D胜率≥50%</li>
+                                                <li><strong>💥暴击</strong>：7D胜率<30%但单币>1万刀</li>
+                                                <li><strong>📈波段</strong>：多窗口盈利+高胜率</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <h6 class="text-info">📝 备注格式</h6>
+                                            <ul class="small mb-0">
+                                                <li><strong>格式</strong>：前4位-数据标签-其他标签</li>
+                                                <li><strong>持仓</strong>：>0.1M自动显示具体M数</li>
+                                                <li><strong>数据</strong>：最多选择3个指标</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 保持现有样式... */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.wallet-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.balance-container {
+    text-align: right;
+}
+
+.balance-amount {
+    color: #28a745;
+    font-size: 14px;
+}
+
+.auto-tag {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    border: none;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+/* 多维度数据样式 */
+.multi-data-container {
+    font-size: 11px;
+}
+
+.data-group {
+    margin-bottom: 6px;
+}
+
+.data-label {
+    margin-bottom: 3px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.data-chip {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 10px;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.data-chip.positive {
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    border-color: #28a745;
+    color: #155724;
+}
+
+.data-chip.negative {
+    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+.data-indicator-tag {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+    color: white;
+    border: none;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin: 1px;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.data-indicator-tag:hover {
+    background: linear-gradient(135deg, #138496, #117a8b);
+}
+
+.data-indicator-tag .remove-indicator {
+    margin-left: 3px;
+    opacity: 0.7;
+}
+
+.data-indicator-tag .remove-indicator:hover {
+    opacity: 1;
+}
+
+/* 全局数据选择器样式 */
+.global-data-checkbox:checked + label {
+    font-weight: bold;
+    color: #007bff;
+}
+
+.selected-count {
+    font-weight: bold;
+}
+
+.remark-input {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+.remark-input[readonly] {
+    background-color: #f8f9fa;
+}
+
+.char-count {
+    font-weight: bold;
+    color: #6c757d;
+}
+
+.char-count.warning {
+    color: #ffc107;
+}
+
+.char-count.danger {
+    color: #dc3545;
+}
+
+.mode-indicator {
+    font-size: 10px;
+    color: #6c757d;
+}
+
+.wallet-row:hover {
+    background-color: #f8f9fa;
+}
+
+.min-width-0 {
+    min-width: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .wallet-avatar {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+    }
+    
+    .data-chip {
+        font-size: 9px;
+        padding: 1px 4px;
+    }
+    
+    .remark-input {
+        font-size: 11px;
+    }
+}
+</style>
+
+<script>
+// 标签配置
+const LABEL_CONFIG = {
+    "狙击钱包": { short: "狙击", emoji: "🎯", group: "none" },
+    "钓鱼钱包": { short: "钓鱼", emoji: "🎣", group: "none" },
+    "新钱包": { short: "新", emoji: "🆕", group: "none" },
+    "单一币钱包": { short: "单币", emoji: "", group: "none" },
+    "内盘选手": { short: "内盘", emoji: "🏦", group: "none" },
+    "新兴聪明交易者": { short: "聪明", emoji: "🧠", group: "none" },
+    "顶级币top地址": { short: "顶级", emoji: "👑", group: "none" },
+    "代币首批持有者": { short: "首批", emoji: "🥇", group: "none" },
+    "高频交易者": { short: "高频", emoji: "", group: "交易频率" },
+    "低频交易者": { short: "低频", emoji: "", group: "交易频率" },
+    "休眠交易者": { short: "休眠", emoji: "", group: "交易频率" },
+    "波段圣手": { short: "波段", emoji: "📈", group: "none" },
+    "做市商": { short: "做市", emoji: "🔄", group: "none" },
+    "暴击小子": { short: "暴击", emoji: "💥", group: "none" }
+};
+
+// 全局状态
+let selectedDataIndicators = {}; // {address: [{type, period, value, label}]}
+let remarkModes = {}; // {address: 'auto'|'manual'}
+let preserveRemarks = '{{ preserve_remarks or "append" }}';
+let globalDataSelection = []; // 全局数据选择
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    initializeRemarkInputs();
+    updateDataChipStyles();
+    updateAllRemarks();
+    initializeGlobalSelection();
+});
+
+function initializeGlobalSelection() {
+    // 监听全局数据选择器
+    document.querySelectorAll('.global-data-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateGlobalSelection);
+    });
+}
+
+function updateGlobalSelection() {
+    const checkboxes = document.querySelectorAll('.global-data-checkbox:checked');
+    const selectedCount = checkboxes.length;
+    
+    // 更新计数显示
+    document.getElementById('selectedCount').textContent = selectedCount;
+    
+    // 限制最多3个
+    if (selectedCount >= 3) {
+        document.querySelectorAll('.global-data-checkbox:not(:checked)').forEach(cb => {
+            cb.disabled = true;
+        });
+    } else {
+        document.querySelectorAll('.global-data-checkbox').forEach(cb => {
+            cb.disabled = false;
+        });
+    }
+    
+    // 更新全局选择数组
+    globalDataSelection = Array.from(checkboxes).map(cb => cb.value);
+}
+
+function clearGlobalSelection() {
+    document.querySelectorAll('.global-data-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.disabled = false;
+    });
+    globalDataSelection = [];
+    updateGlobalSelection();
+}
+
+function applyGlobalSelection() {
+    if (globalDataSelection.length === 0) {
+        alert('请先选择要应用的数据指标');
+        return;
+    }
+    
+    // 应用到所有钱包
+    document.querySelectorAll('.wallet-row').forEach(row => {
+        const address = row.dataset.address;
+        selectedDataIndicators[address] = [];
+        
+        globalDataSelection.forEach(selection => {
+            const [type, period] = selection.split('_');
+            const dataChip = row.querySelector(`.data-chip[data-type="${type}"][data-period="${period}"]`);
+            
+            if (dataChip) {
+                const value = parseFloat(dataChip.dataset.value || 0);
+                const label = dataChip.textContent.trim();
+                
+                selectedDataIndicators[address].push({
+                    type,
+                    period,
+                    value,
+                    label: label.replace(':', '')
+                });
+            }
+        });
+        
+        updateDataIndicatorsDisplay(address);
+        updateRemark(address);
+    });
+    
+    alert(`已应用 ${globalDataSelection.length} 个数据指标到所有钱包`);
+}
+
+function initializeRemarkInputs() {
+    document.querySelectorAll('.remark-input').forEach(input => {
+        const address = input.dataset.address;
+        remarkModes[address] = 'auto';
+        selectedDataIndicators[address] = [];
+        
+        input.addEventListener('input', function() {
+            updateCharCount(this);
+        });
+        
+        updateCharCount(input);
+    });
+}
+
+function updateDataChipStyles() {
+    document.querySelectorAll('.data-chip[data-value]').forEach(chip => {
+        const value = parseFloat(chip.dataset.value);
+        const type = chip.dataset.type;
+        
+        // 根据数值设置样式
+        if (type === 'win_rate') {
+            if (value >= 60) {
+                chip.classList.add('positive');
+            } else if (value <= 30) {
+                chip.classList.add('negative');
+            }
+        } else if (type === 'pnl' || type === 'roi') {
+            if (value > 0) {
+                chip.classList.add('positive');
+            } else if (value < 0) {
+                chip.classList.add('negative');
+            }
+        }
+    });
+}
+
+function updateDataIndicatorsDisplay(address) {
+    const container = document.querySelector(`.selected-data-indicators[data-address="${address}"]`);
+    const indicators = selectedDataIndicators[address] || [];
+    
+    container.innerHTML = indicators.map(indicator => `
+        <span class="data-indicator-tag" 
+              onclick="removeDataIndicator('${address}', '${indicator.type}', '${indicator.period}')">
+            ${indicator.label}
+            <i class="fas fa-times remove-indicator"></i>
+        </span>
+    `).join('');
+}
+
+function removeDataIndicator(address, type, period) {
+    if (selectedDataIndicators[address]) {
+        selectedDataIndicators[address] = selectedDataIndicators[address].filter(
+            item => !(item.type === type && item.period === period)
+        );
+        
+        updateDataIndicatorsDisplay(address);
+        updateRemark(address);
+    }
+}
+
+// 生成备注：钱包前4位-数据标签-其他标签
+function generateRemark(address, useEmoji = true) {
+    // 1. 钱包前4位
+    const walletPrefix = address.slice(0, 4);
+    
+    // 2. 数据标签
+    const indicators = selectedDataIndicators[address] || [];
+    let dataRemark = '';
+    if (indicators.length > 0) {
+        dataRemark = indicators.map(ind => {
+            let shortLabel = ind.label.replace(/[:\s]/g, '');
+            // 进一步缩短标签
+            shortLabel = shortLabel.replace(/7D|30D/g, '').replace(/胜率|收益|ROI/g, '');
+            return ind.period.toUpperCase() + shortLabel;
+        }).join(',');
+    }
+    
+    // 3. 获取系统标签
+    const autoTagElements = document.querySelectorAll(`tr[data-address="${address}"] .auto-tag`);
+    const autoTags = Array.from(autoTagElements).map(el => el.dataset.tag);
+    
+    // 生成标签备注
+    let tagRemark = '';
+    if (autoTags.length > 0) {
+        tagRemark = autoTags.map(tag => {
+            const config = LABEL_CONFIG[tag];
+            if (config) {
+                // 某些标签不用emoji
+                if (config.emoji === "") {
+                    return config.short;
+                } else {
+                    return useEmoji ? config.emoji + config.short : config.short;
+                }
+            }
+            return tag;
+        }).join('-');
+    }
+    
+    // 4. 检查大额持仓
+    const input = document.querySelector(`input[data-address="${address}"].remark-input`);
+    const balanceMillions = parseFloat(input.dataset.balanceMillions || 0);
+    const hasLargeHolding = input.dataset.hasLargeHolding === 'true';
+    
+    let balanceTag = '';
+    if (hasLargeHolding && balanceMillions >= 0.1) {
+        balanceTag = `${balanceMillions.toFixed(1)}M`;
+    }
+    
+    // 5. 组合备注：钱包前4位-数据标签-其他标签-持仓标签
+    let parts = [walletPrefix];
+    
+    if (dataRemark) parts.push(dataRemark);
+    if (tagRemark) parts.push(tagRemark);
+    if (balanceTag) parts.push(balanceTag);
+    
+    let finalRemark = parts.join('-');
+    
+    // 6. 处理原始备注
+    const originalRemark = input ? input.dataset.originalRemark || '' : '';
+    
+    if (originalRemark) {
+        if (preserveRemarks === 'overwrite') {
+            // 保持当前逻辑
+        } else if (preserveRemarks === 'append') {
+            finalRemark = finalRemark + (finalRemark && originalRemark ? '-' : '') + originalRemark;
+        } else if (preserveRemarks === 'prepend') {
+            finalRemark = originalRemark + (finalRemark && originalRemark ? '-' : '') + finalRemark;
+        }
+    }
+    
+    // 7. 长度限制
+    if (finalRemark.length > 80) {
+        finalRemark = finalRemark.slice(0, 77) + '...';
+    }
+    
+    return finalRemark;
+}
+
+function updateRemark(address) {
+    if (remarkModes[address] === 'manual') return;
+    
+    const input = document.querySelector(`input[data-address="${address}"].remark-input`);
+    if (input) {
+        input.value = generateRemark(address, true);
+        updateCharCount(input);
+    }
+}
+
+function updateAllRemarks() {
+    Object.keys(remarkModes).forEach(address => {
+        if (remarkModes[address] === 'auto') {
+            updateRemark(address);
+        }
+    });
+}
+
+function toggleRemarkMode(address) {
+    const input = document.querySelector(`input[data-address="${address}"].remark-input`);
+    const modeIndicator = input.closest('.remark-container').querySelector('.mode-indicator');
+    const editBtn = input.closest('.remark-container').querySelector('.btn');
+    
+    if (remarkModes[address] === 'auto') {
+        // 切换到手动模式
+        remarkModes[address] = 'manual';
+        input.readOnly = false;
+        input.classList.remove('bg-light');
+        modeIndicator.textContent = '手动模式';
+        editBtn.innerHTML = '<i class="fas fa-lock"></i>';
+        editBtn.title = '锁定为自动';
+        input.focus();
+    } else {
+        // 切换到自动模式
+        remarkModes[address] = 'auto';
+        input.readOnly = true;
+        input.classList.add('bg-light');
+        modeIndicator.textContent = '自动模式';
+        editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        editBtn.title = '编辑/锁定';
+        updateRemark(address);
+    }
+}
+
+function updateCharCount(input) {
+    const length = input.value.length;
+    const counter = input.closest('.remark-container').querySelector('.char-count');
+    
+    counter.textContent = `${length}/80`;
+    counter.className = 'char-count';
+    
+    if (length > 75) {
+        counter.classList.add('danger');
+    } else if (length > 65) {
+        counter.classList.add('warning');
+    }
+}
+
+function copyAddress(address) {
+    navigator.clipboard.writeText(address).then(() => {
+        // 显示复制成功提示
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
+        toast.innerHTML = `
+            <i class="fas fa-check me-2"></i>地址已复制到剪贴板
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast.parentNode) toast.remove();
+        }, 3000);
+    });
+}
+
+function exportResults() {
+    const results = [];
+    
+    document.querySelectorAll('#walletAnalysisTable tbody tr').forEach(row => {
+        const address = row.dataset.address;
+        const balanceElement = row.querySelector('.balance-amount');
+        const balance = balanceElement ? balanceElement.textContent : '';
+        
+        const autoTags = Array.from(row.querySelectorAll('.auto-tag')).map(tag => tag.textContent.trim());
+        const remark = row.querySelector('.remark-input').value;
+        
+        // 获取数据
+        const walletData = getWalletData(address);
+        
+        results.push({
+            address,
+            balance,
+            win_rate_7d: walletData.win_rate_7d || 0,
+            pnl_7d: walletData.pnl_7d || 0,
+            roi_7d: walletData.roi_7d || 0,
+            win_rate_30d: walletData.win_rate_30d || 0,
+            pnl_30d: walletData.pnl_30d || 0,
+            roi_30d: walletData.roi_30d || 0,
+            autoTags: autoTags.join(', '),
+            remark
+        });
+    });
+    
+    // 转换为CSV
+    const headers = ['钱包地址', '持仓价值', '7D胜率%', '7D收益', '7D ROI%', '30D胜率%', '30D收益', '30D ROI%', '系统标签', '生成备注'];
+    const csvContent = [
+        headers.join(','),
+        ...results.map(row => [
+            row.address,
+            `"${row.balance}"`,
+            `"${row.win_rate_7d}%"`,
+            `"${row.pnl_7d}"`,
+            `"${row.roi_7d}%"`,
+            `"${row.win_rate_30d}%"`,
+            `"${row.pnl_30d}"`,
+            `"${row.roi_30d}%"`,
+            `"${row.autoTags}"`,
+            `"${row.remark}"`
+        ].join(','))
+    ].join('\n');
+    
+    // 下载文件
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wallet_analysis_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

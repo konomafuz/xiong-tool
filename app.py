@@ -7,6 +7,8 @@ import json
 # 新增的模块
 from modules import holder, parse_transactions, estimate_costs, cluster_addresses
 import os
+from modules import wallet_tag_engine
+
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # 设置安全的密钥
@@ -648,159 +650,91 @@ def address_monitor():
                              "历史行为分析"
                          ])
 
-@app.route('/smart_wallet', methods=['GET', 'POST'])
-def smart_wallet_analysis():
-    """聪明钱包分析"""
-    if request.method == 'POST':
+@app.route("/wallet_analyzer", methods=["GET", "POST"])
+def wallet_analyzer():
+    """钱包智能分析器"""
+    if request.method == "POST":
+        wallet_addresses_text = request.form.get("walletAddresses", "").strip()
+        chain_id = request.form.get("chainId", "501")
+        preserve_remarks = request.form.get("preserveRemarks", "append")  # 新增：备注处理方式
+        
+        if not wallet_addresses_text:
+            flash("请输入钱包地址", "danger")
+            return render_template("wallet_analyzer.html")
+        
+        # 解析地址列表（支持带备注的格式）
+        addresses_with_remarks = []
+        for line in wallet_addresses_text.split('\n'):
+            line = line.strip()
+            if line and len(line) > 20:
+                # 解析格式：地址:备注 或 纯地址
+                if ':' in line:
+                    parts = line.split(':', 1)
+                    address = parts[0].strip()
+                    original_remark = parts[1].strip() if len(parts) > 1 else ""
+                else:
+                    address = line
+                    original_remark = ""
+                
+                if len(address) > 20:  # 基本验证
+                    addresses_with_remarks.append({
+                        'address': address,
+                        'original_remark': original_remark
+                    })
+        
+        if not addresses_with_remarks:
+            flash("未找到有效的钱包地址", "danger")
+            return render_template("wallet_analyzer.html")
+        
+        if len(addresses_with_remarks) > 10:
+            flash("最多支持10个地址同时分析", "warning")
+            addresses_with_remarks = addresses_with_remarks[:10]
+        
         try:
-            mode = request.form.get('mode', 'discover')
+            # 使用标签引擎
+            engine = wallet_tag_engine.WalletTagEngine()
             
-            if mode == 'label':
-                # 标记模式：为指定地址生成标记
-                address_list_text = request.form.get('addressList', '').strip()
-                chain_id = request.form.get('labelChainId', '501')
-                
-                if not address_list_text:
-                    return render_template('smart_wallet.html', 
-                                         error="请输入钱包地址列表")
-                
-                print(f"🏷️ 标记模式：开始分析地址列表")
-                print(f"📝 输入内容:\n{address_list_text}")
-                
-                # 分析地址列表（直接传递文本，让模块自己解析）
-                from modules.smart_wallet import analyze_address_list
-                smart_wallets = analyze_address_list(address_list_text, chain_id)
-                
-                results = {
-                    "smart_wallets": smart_wallets,
-                    "stats": {
-                        "total_analyzed": len(smart_wallets),
-                        "smart_count": len(smart_wallets),
-                        "failed_count": 0
-                    }
-                }
-                
-                # 保存结果到session
-                session['smart_wallet_results'] = results
-                session['smart_wallet_params'] = {
-                    'mode': mode,
-                    'addressList': address_list_text,
-                    'chainId': chain_id
-                }
-                
-                return render_template('smart_wallet.html', 
-                                     results=results)
+            # 只提取地址进行分析
+            addresses = [item['address'] for item in addresses_with_remarks]
+            print(f"🔍 开始批量分析 {len(addresses)} 个钱包...")
+            results = engine.batch_analyze(addresses, chain_id)
             
-            else:
-                # 发现模式：自动发现聪明钱包
-                token_address = request.form.get('tokenAddress', '').strip()
-                token_name = request.form.get('tokenName', '').strip()
-                chain_id = request.form.get('chainId', '501')
-                limit = int(request.form.get('limit', 300))
-                
-                # 筛选条件
-                criteria = {
-                    'win_rate_1m': float(request.form.get('winRate1m', 35)),
-                    'win_rate_3m': float(request.form.get('winRate3m', 30)),
-                    'min_profit': float(request.form.get('minProfit', 10000)),
-                    'high_return_min': int(request.form.get('highReturnMin', 1)),
-                    'medium_return_min': int(request.form.get('mediumReturnMin', 2))
-                }
-                
-                if not token_address or not token_name:
-                    return render_template('smart_wallet.html',
-                                         error="请输入代币合约地址和名称")
-                
-                print(f"🔍 发现模式：分析代币 {token_name} ({token_address[:8]}...)")
-                
-                # 执行发现分析
-                from modules.smart_wallet import discover_smart_wallets
-                results = discover_smart_wallets(token_address, criteria, chain_id, limit)
-                
-                # 保存结果到session
-                session['smart_wallet_results'] = results
-                session['smart_wallet_params'] = {
-                    'mode': mode,
-                    'tokenAddress': token_address,
-                    'tokenName': token_name,
-                    'chainId': chain_id,
-                    'limit': limit,
-                    'criteria': criteria
-                }
-                
-                return render_template('smart_wallet.html',
-                                     results=results)
+            # 将原始备注添加到结果中
+            for i, result in enumerate(results):
+                if i < len(addresses_with_remarks):
+                    result['original_remark'] = addresses_with_remarks[i]['original_remark']
+                else:
+                    result['original_remark'] = ""
             
-        except Exception as e:
-            print(f"❌ 聪明钱包分析失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return render_template('smart_wallet.html',
-                                 error=f"分析失败: {str(e)}")
-    
-    return render_template('smart_wallet.html')
-
-# 添加聪明钱包结果下载路由
-@app.route("/download_smart_wallet", methods=["POST"])
-def download_smart_wallet():
-    """下载聪明钱包分析结果"""
-    if 'smart_wallet_results' not in session:
-        flash("没有可导出的数据", "warning")
-        return redirect(url_for('smart_wallet_analysis'))
-    
-    try:
-        results = session['smart_wallet_results']
-        smart_wallets = results.get('smart_wallets', [])
-        
-        if not smart_wallets:
-            flash("没有数据可导出", "warning")
-            return redirect(url_for('smart_wallet_analysis'))
-        
-        # 创建DataFrame
-        data = []
-        for wallet in smart_wallets:
-            row = {
-                "钱包地址": wallet['address'],
-                "智能标记": wallet['remark'],
-                "分析原因": wallet['reason'],
-                "特征标签": wallet['emoji'],
-                "已有标记": wallet.get('existing_label', ''),
+            # 保存结果到session
+            session['wallet_analyzer_results'] = results
+            session['wallet_analyzer_params'] = {
+                'addresses': addresses,
+                'chain_id': chain_id,
+                'preserve_remarks': preserve_remarks
             }
             
-            # 添加Twitter信息
-            if wallet.get('twitter_info'):
-                twitter = wallet['twitter_info']
-                row["Twitter名称"] = twitter.get('twitter_name', '')
-                row["关注数"] = twitter.get('follow_count', 0)
-            else:
-                row["Twitter名称"] = ''
-                row["关注数"] = 0
+            flash(f"分析完成！成功分析了 {len(results)} 个钱包", "success")
             
-            data.append(row)
-        
-        df = pd.DataFrame(data)
-        df.index = df.index + 1  # 从1开始编号
-        
-        # 生成文件名
-        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-        mode = session.get('smart_wallet_params', {}).get('mode', 'unknown')
-        filename_prefix = f"smart_wallet_{mode}_{timestamp}"
-        
-        return export_to_excel(df, filename_prefix)
-        
-    except Exception as e:
-        flash(f"导出失败: {str(e)}", "danger")
-        return redirect(url_for('smart_wallet_analysis'))
+            return render_template("wallet_analyzer.html", 
+                                 results=results,
+                                 chain_id=chain_id,
+                                 wallet_addresses=wallet_addresses_text,
+                                 preserve_remarks=preserve_remarks)
+            
+        except Exception as e:
+            print(f"❌ 分析异常: {e}")
+            import traceback
+            print(f"📝 异常详情: {traceback.format_exc()}")
+            flash(f"分析失败: {str(e)}", "danger")
+            return render_template("wallet_analyzer.html")
+    
+    return render_template("wallet_analyzer.html")
 
-# 如果需要实时进度，可以添加这个API端点
-@app.route("/api/smart_wallet_progress")
-def smart_wallet_progress():
-    # 这里可以从session或数据库获取进度信息
-    progress = session.get('analysis_progress', 0)
-    return jsonify({
-        "progress": progress,
-        "status": "analyzing" if progress < 100 else "completed"
-    })
+@app.route("/smart_wallet", methods=["GET", "POST"])
+def smart_wallet():
+    """智能钱包分析 - 重定向到新分析器"""
+    return redirect(url_for('wallet_analyzer'))
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
