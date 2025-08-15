@@ -4,70 +4,30 @@
 
 {% block extra_css %}
 <style>
-/* 蓝紫色主题现代化设计 */
 .smart-wallet-container {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%);
-    background-attachment: fixed;
     min-height: 100vh;
     padding: 2rem 0;
-    position: relative;
-}
-
-.smart-wallet-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(circle at 20% 80%, rgba(79, 70, 229, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(124, 58, 237, 0.3) 0%, transparent 50%);
-    pointer-events: none;
 }
 
 .main-card {
     background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
     border-radius: 24px;
-    box-shadow: 0 25px 50px rgba(79, 70, 229, 0.15), 
-                0 8px 32px rgba(124, 58, 237, 0.1);
+    box-shadow: 0 25px 50px rgba(79, 70, 229, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.2);
     overflow: hidden;
-    position: relative;
 }
 
 .card-header-modern {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%);
     color: white;
     padding: 3rem 2rem;
-    border-radius: 24px 24px 0 0;
     text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-
-.card-header-modern::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: 
-        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.15) 2px, transparent 3px),
-        radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.1) 1px, transparent 2px);
-    background-size: 30px 30px, 50px 50px;
-    animation: sparkle 8s ease-in-out infinite;
-}
-
-@keyframes sparkle {
-    0%, 100% { opacity: 0.8; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.05); }
 }
 
 .form-section {
     padding: 3rem 2rem;
-    background: linear-gradient(145deg, rgba(248, 250, 252, 0.7), rgba(241, 245, 249, 0.5));
+    background: rgba(248, 250, 252, 0.7);
 }
 
 .modern-input-group {
@@ -75,24 +35,26 @@
     margin-bottom: 2rem;
 }
 
-.modern-input {
+.modern-input, .modern-textarea {
     width: 100%;
     padding: 1.2rem 1.8rem;
     border: 2px solid rgba(79, 70, 229, 0.1);
     border-radius: 16px;
     font-size: 1rem;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     background: rgba(255, 255, 255, 0.8);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.05);
 }
 
-.modern-input:focus {
+.modern-textarea {
+    min-height: 150px;
+    font-family: 'Monaco', 'Menlo', 'SF Mono', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.modern-input:focus, .modern-textarea:focus {
     outline: none;
     border-color: #4f46e5;
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1), 
-                0 8px 25px rgba(79, 70, 229, 0.15);
     background: white;
-    transform: translateY(-2px);
 }
 
 .modern-label {
@@ -106,7 +68,6 @@
     padding: 0 12px;
     font-size: 0.9rem;
     font-weight: 700;
-    letter-spacing: 0.5px;
 }
 
 .modern-select {
@@ -116,24 +77,14 @@
     border-radius: 16px;
     font-size: 1rem;
     background: rgba(255, 255, 255, 0.8);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.05);
-}
-
-.modern-select:focus {
-    outline: none;
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
 }
 
 .section-card {
     background: rgba(255, 255, 255, 0.9);
     border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(79, 70, 229, 0.08);
     margin-bottom: 2rem;
     overflow: hidden;
     border: 1px solid rgba(79, 70, 229, 0.08);
-    backdrop-filter: blur(10px);
 }
 
 .section-header {
@@ -141,7 +92,6 @@
     font-weight: 700;
     font-size: 1.2rem;
     border-bottom: 1px solid rgba(79, 70, 229, 0.1);
-    position: relative;
 }
 
 .section-header.smart {
@@ -149,7 +99,7 @@
     color: white;
 }
 
-.section-header.conspiracy {
+.section-header.address-input {
     background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
     color: white;
 }
@@ -157,6 +107,37 @@
 .section-body {
     padding: 2.5rem;
     background: rgba(248, 250, 252, 0.3);
+}
+
+.mode-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.mode-tab {
+    flex: 1;
+    padding: 1rem 2rem;
+    border: 2px solid rgba(79, 70, 229, 0.2);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    text-align: center;
+    font-weight: 600;
+}
+
+.mode-tab.active {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: white;
+    border-color: #4f46e5;
+}
+
+.mode-content {
+    display: none;
+}
+
+.mode-content.active {
+    display: block;
 }
 
 .submit-btn {
@@ -167,145 +148,14 @@
     color: white;
     font-weight: 700;
     font-size: 1.1rem;
-    letter-spacing: 0.5px;
     text-transform: uppercase;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 12px 40px rgba(79, 70, 229, 0.3);
-    position: relative;
-    overflow: hidden;
 }
 
 .submit-btn:hover {
-    transform: translateY(-4px) scale(1.02);
     box-shadow: 0 20px 60px rgba(79, 70, 229, 0.4);
 }
 
-.submit-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.submit-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transition: left 0.6s;
-}
-
-.submit-btn:hover::before {
-    left: 100%;
-}
-
-/* 主界面进度条样式 */
-.analysis-progress {
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 20px;
-    padding: 2rem;
-    margin: 2rem 0;
-    box-shadow: 0 8px 32px rgba(79, 70, 229, 0.08);
-    border: 1px solid rgba(79, 70, 229, 0.08);
-    backdrop-filter: blur(10px);
-    display: none;
-}
-
-.progress-header {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-
-.progress-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
-}
-
-.progress-subtitle {
-    color: #6b7280;
-    font-size: 1rem;
-}
-
-.progress-bar-container {
-    background: rgba(79, 70, 229, 0.1);
-    border-radius: 50px;
-    height: 20px;
-    overflow: hidden;
-    margin-bottom: 1.5rem;
-    position: relative;
-}
-
-.progress-bar {
-    height: 100%;
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%);
-    border-radius: 50px;
-    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-    width: 0%;
-}
-
-.progress-bar::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
-    animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
-
-.progress-stats {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.progress-stat {
-    text-align: center;
-    flex: 1;
-    min-width: 120px;
-}
-
-.progress-stat-number {
-    font-size: 1.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.progress-stat-label {
-    font-size: 0.9rem;
-    color: #6b7280;
-    font-weight: 500;
-}
-
-.progress-text {
-    text-align: center;
-    font-size: 1rem;
-    color: #374151;
-    margin-top: 1rem;
-    font-weight: 500;
-}
-
-/* 结果卡片 */
 .result-card {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 24px;
@@ -313,77 +163,12 @@
     margin-bottom: 2rem;
     overflow: hidden;
     border: 1px solid rgba(79, 70, 229, 0.08);
-    backdrop-filter: blur(20px);
-}
-
-.stat-card {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 20px;
-    padding: 2.5rem;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(79, 70, 229, 0.08);
-    margin-bottom: 1.5rem;
-    border: 1px solid rgba(79, 70, 229, 0.08);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
-}
-
-.stat-card:hover {
-    transform: translateY(-8px) scale(1.02);
-    box-shadow: 0 20px 60px rgba(79, 70, 229, 0.15);
-}
-
-.stat-number {
-    font-size: 3rem;
-    font-weight: 800;
-    margin-bottom: 0.5rem;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.stat-label {
-    font-size: 1.1rem;
-    color: #6b7280;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-}
-
-.stat-card.total .stat-number { 
-    background: linear-gradient(135deg, #6b7280, #374151);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.stat-card.smart .stat-number { 
-    background: linear-gradient(135deg, #4f46e5, #06b6d4);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.stat-card.conspiracy .stat-number { 
-    background: linear-gradient(135deg, #7c3aed, #2563eb);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.stat-card.other .stat-number { 
-    background: linear-gradient(135deg, #64748b, #475569);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
 }
 
 .wallet-table {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 8px 32px rgba(79, 70, 229, 0.08);
-    backdrop-filter: blur(20px);
 }
 
 .table-header {
@@ -395,10 +180,6 @@
     align-items: center;
 }
 
-.table-header.conspiracy {
-    background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
-}
-
 .copy-btn {
     background: rgba(255, 255, 255, 0.2);
     border: 2px solid rgba(255, 255, 255, 0.3);
@@ -407,14 +188,11 @@
     border-radius: 30px;
     font-size: 0.9rem;
     font-weight: 600;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
+    margin-left: 0.5rem;
 }
 
 .copy-btn:hover {
     background: rgba(255, 255, 255, 0.3);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2);
 }
 
 .modern-table {
@@ -424,307 +202,222 @@
 
 .modern-table th,
 .modern-table td {
-    padding: 1.5rem;
+    padding: 1rem;
     text-align: left;
     border-bottom: 1px solid rgba(79, 70, 229, 0.08);
+    font-size: 0.9rem;
 }
 
 .modern-table th {
     background: rgba(79, 70, 229, 0.05);
     font-weight: 700;
     color: #374151;
-    font-size: 0.9rem;
-    letter-spacing: 0.5px;
     text-transform: uppercase;
-}
-
-.modern-table tbody tr {
-    transition: all 0.3s ease;
-}
-
-.modern-table tbody tr:hover {
-    background: rgba(79, 70, 229, 0.05);
-    transform: translateX(4px);
 }
 
 .wallet-address {
     font-family: 'Monaco', 'Menlo', 'SF Mono', monospace;
     background: rgba(79, 70, 229, 0.1);
     color: #4f46e5;
-    padding: 0.5rem 1rem;
-    border-radius: 12px;
-    font-size: 0.9rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
     font-weight: 600;
-    border: 1px solid rgba(79, 70, 229, 0.2);
 }
 
 .wallet-remark {
     font-weight: 700;
-    padding: 0.6rem 1.2rem;
-    border-radius: 25px;
-    font-size: 0.9rem;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.remark-smart {
+    padding: 0.4rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
     background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
     color: white;
 }
 
-.remark-conspiracy {
-    background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
-    color: white;
+.stat-card {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 1.5rem;
+    border-radius: 16px;
+    text-align: center;
+    border: 1px solid rgba(79, 70, 229, 0.08);
 }
 
-/* 响应式 */
-@media (max-width: 768px) {
-    .smart-wallet-container {
-        padding: 1rem;
-    }
-    
-    .main-card {
-        border-radius: 20px;
-    }
-    
-    .form-section,
-    .section-body {
-        padding: 1.5rem;
-    }
-    
-    .card-header-modern {
-        padding: 2rem 1.5rem;
-    }
-    
-    .stat-number {
-        font-size: 2.5rem;
-    }
-    
-    .submit-btn {
-        padding: 1rem 3rem;
-        font-size: 1rem;
-    }
-    
-    .progress-stats {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .progress-stat {
-        min-width: 100%;
-    }
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
-/* 额外的视觉效果 */
-.floating-elements {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    overflow: hidden;
-}
-
-.floating-elements::before,
-.floating-elements::after {
-    content: '';
-    position: absolute;
-    background: radial-gradient(circle, rgba(79, 70, 229, 0.1) 0%, transparent 70%);
-    border-radius: 50%;
-    animation: float 20s ease-in-out infinite;
-}
-
-.floating-elements::before {
-    width: 300px;
-    height: 300px;
-    top: 10%;
-    left: 10%;
-    animation-delay: 0s;
-}
-
-.floating-elements::after {
-    width: 200px;
-    height: 200px;
-    bottom: 20%;
-    right: 10%;
-    animation-delay: 10s;
-    background: radial-gradient(circle, rgba(124, 58, 237, 0.1) 0%, transparent 70%);
-}
-
-@keyframes float {
-    0%, 100% {
-        transform: translateY(0px) translateX(0px) scale(1);
-        opacity: 0.5;
-    }
-    25% {
-        transform: translateY(-20px) translateX(10px) scale(1.1);
-        opacity: 0.8;
-    }
-    50% {
-        transform: translateY(-10px) translateX(-10px) scale(0.9);
-        opacity: 0.6;
-    }
-    75% {
-        transform: translateY(-30px) translateX(5px) scale(1.05);
-        opacity: 0.7;
-    }
+.stat-label {
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 500;
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="smart-wallet-container">
-    <div class="floating-elements"></div>
-
     <div class="container">
         <!-- 主标题卡片 -->
         <div class="main-card">
             <div class="card-header-modern">
-                <h1 class="display-4 mb-3">🧠 聪明/阴谋钱包识别</h1>
-                <p class="lead mb-0">基于链上数据智能识别高胜率钱包和潜在阴谋钱包</p>
+                <h1 class="display-4 mb-3">🧠 聪明钱包智能标记</h1>
+                <p class="lead mb-0">基于链上数据智能识别高胜率钱包并生成专业标记</p>
             </div>
 
             <div class="form-section">
+                <!-- 模式选择 -->
+                <div class="mode-tabs">
+                    <div class="mode-tab" onclick="switchMode('discover')" data-mode="discover">
+                        <div>🔍 <strong>发现模式</strong></div>
+                        <small>自动扫描并筛选聪明钱包</small>
+                    </div>
+                    <div class="mode-tab" onclick="switchMode('label')" data-mode="label">
+                        <div>🏷️ <strong>标记模式</strong></div>
+                        <small>为指定地址生成智能标记</small>
+                    </div>
+                </div>
+
                 <form method="POST" id="analysisForm">
-                    <!-- 基础信息 -->
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="modern-input-group">
-                                <label class="modern-label">代币合约地址 *</label>
-                                <input 
-                                    type="text" 
-                                    class="modern-input" 
-                                    name="tokenAddress" 
-                                    placeholder="请输入代币合约地址"
-                                    value="{{ request.form.get('tokenAddress', '') }}"
-                                    required
-                                >
+                    <input type="hidden" name="mode" id="modeInput" value="{{ request.form.get('mode', 'discover') }}">
+                    
+                    <!-- 发现模式内容 -->
+                    <div class="mode-content" id="discoverMode">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="modern-input-group">
+                                    <label class="modern-label">代币合约地址 *</label>
+                                    <input 
+                                        type="text" 
+                                        class="modern-input" 
+                                        name="tokenAddress" 
+                                        id="tokenAddress"
+                                        placeholder="请输入代币合约地址"
+                                        value="{{ request.form.get('tokenAddress', '') }}"
+                                    >
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="modern-input-group">
+                                    <label class="modern-label">代币名称 *</label>
+                                    <input 
+                                        type="text" 
+                                        class="modern-input" 
+                                        name="tokenName" 
+                                        id="tokenName"
+                                        placeholder="请输入代币名称"
+                                        value="{{ request.form.get('tokenName', '') }}"
+                                    >
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="modern-input-group">
-                                <label class="modern-label">代币名称 *</label>
-                                <input 
-                                    type="text" 
-                                    class="modern-input" 
-                                    name="tokenName" 
-                                    placeholder="请输入代币名称"
-                                    value="{{ request.form.get('tokenName', '') }}"
-                                    required
-                                >
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="modern-input-group">
-                                <label class="modern-label">区块链网络</label>
-                                <select class="modern-select" name="chainId">
-                                    <option value="501" {{ 'selected' if request.form.get('chainId', '501') == '501' }}>
-                                        🟣 Solana
-                                    </option>
-                                    <option value="1" {{ 'selected' if request.form.get('chainId') == '1' }}>
-                                        🔷 Ethereum
-                                    </option>
-                                </select>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="modern-input-group">
+                                    <label class="modern-label">区块链网络</label>
+                                    <select class="modern-select" name="chainId">
+                                        <option value="501" {{ 'selected' if request.form.get('chainId', '501') == '501' }}>🟣 Solana</option>
+                                        <option value="1" {{ 'selected' if request.form.get('chainId') == '1' }}>🔷 Ethereum</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="modern-input-group">
+                                    <label class="modern-label">分析地址数量</label>
+                                    <input 
+                                        type="number" 
+                                        class="modern-input" 
+                                        name="limit" 
+                                        min="1" 
+                                        max="1000" 
+                                        value="{{ request.form.get('limit', '300') }}"
+                                        placeholder="1-1000 (默认300)"
+                                    >
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="modern-input-group">
-                                <label class="modern-label">分析地址数量</label>
-                                <input 
-                                    type="number" 
-                                    class="modern-input" 
-                                    name="limit" 
-                                    min="1" 
-                                    max="1000" 
-                                    value="{{ request.form.get('limit', '300') }}"
-                                    placeholder="1-1000 (默认300)"
-                                >
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- 聪明钱包筛选条件 -->
-                    <div class="section-card">
-                        <div class="section-header smart">
-                            💎 聪明钱包筛选条件
-                        </div>
-                        <div class="section-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="modern-input-group">
-                                        <label class="modern-label">近1月胜率阈值 (%)</label>
-                                        <input 
-                                            type="number" 
-                                            class="modern-input" 
-                                            name="winRate1m" 
-                                            min="0" 
-                                            max="100" 
-                                            value="{{ request.form.get('winRate1m', '35') }}"
-                                            placeholder="默认 35%"
-                                        >
+                        <!-- 聪明钱包筛选条件 -->
+                        <div class="section-card">
+                            <div class="section-header smart">💎 聪明钱包筛选条件</div>
+                            <div class="section-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="modern-input-group">
+                                            <label class="modern-label">近1月胜率阈值 (%)</label>
+                                            <input 
+                                                type="number" 
+                                                class="modern-input" 
+                                                name="winRate1m" 
+                                                min="0" 
+                                                max="100" 
+                                                value="{{ request.form.get('winRate1m', '35') }}"
+                                                placeholder="默认 35%"
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="modern-input-group">
+                                            <label class="modern-label">近3月胜率阈值 (%)</label>
+                                            <input 
+                                                type="number" 
+                                                class="modern-input" 
+                                                name="winRate3m" 
+                                                min="0" 
+                                                max="100" 
+                                                value="{{ request.form.get('winRate3m', '30') }}"
+                                                placeholder="默认 30%"
+                                            >
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="modern-input-group">
-                                        <label class="modern-label">近3月胜率阈值 (%)</label>
-                                        <input 
-                                            type="number" 
-                                            class="modern-input" 
-                                            name="winRate3m" 
-                                            min="0" 
-                                            max="100" 
-                                            value="{{ request.form.get('winRate3m', '30') }}"
-                                            placeholder="默认 30%"
-                                        >
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="modern-input-group">
+                                            <label class="modern-label">单币最小盈利 (USD)</label>
+                                            <input 
+                                                type="number" 
+                                                class="modern-input" 
+                                                name="minProfit" 
+                                                min="0" 
+                                                value="{{ request.form.get('minProfit', '10000') }}"
+                                                placeholder="默认 10,000 USD"
+                                            >
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="modern-input-group">
-                                        <label class="modern-label">单币最小盈利 (USD)</label>
-                                        <input 
-                                            type="number" 
-                                            class="modern-input" 
-                                            name="minProfit" 
-                                            min="0" 
-                                            value="{{ request.form.get('minProfit', '10000') }}"
-                                            placeholder="默认 10,000 USD"
-                                        >
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="modern-input-group">
-                                        <label class="modern-label">高收益要求</label>
-                                        <div class="row">
-                                            <div class="col-5">
-                                                <input 
-                                                    type="number" 
-                                                    class="modern-input" 
-                                                    name="highReturnMin" 
-                                                    min="0" 
-                                                    value="{{ request.form.get('highReturnMin', '1') }}"
-                                                    placeholder=">500%数量"
-                                                >
-                                            </div>
-                                            <div class="col-2 text-center d-flex align-items-center justify-content-center">
-                                                <span class="fw-bold" style="color: #4f46e5;">或</span>
-                                            </div>
-                                            <div class="col-5">
-                                                <input 
-                                                    type="number" 
-                                                    class="modern-input" 
-                                                    name="mediumReturnMin" 
-                                                    min="0" 
-                                                    value="{{ request.form.get('mediumReturnMin', '2') }}"
-                                                    placeholder="0-500%数量"
-                                                >
+                                    <div class="col-md-6">
+                                        <div class="modern-input-group">
+                                            <label class="modern-label">高收益要求</label>
+                                            <div class="row">
+                                                <div class="col-5">
+                                                    <input 
+                                                        type="number" 
+                                                        class="modern-input" 
+                                                        name="highReturnMin" 
+                                                        min="0" 
+                                                        value="{{ request.form.get('highReturnMin', '1') }}"
+                                                        placeholder=">500%数量"
+                                                    >
+                                                </div>
+                                                <div class="col-2 text-center d-flex align-items-center justify-content-center">
+                                                    <span class="fw-bold" style="color: #4f46e5;">或</span>
+                                                </div>
+                                                <div class="col-5">
+                                                    <input 
+                                                        type="number" 
+                                                        class="modern-input" 
+                                                        name="mediumReturnMin" 
+                                                        min="0" 
+                                                        value="{{ request.form.get('mediumReturnMin', '2') }}"
+                                                        placeholder="0-500%数量"
+                                                    >
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -733,24 +426,31 @@
                         </div>
                     </div>
 
-                    <!-- 阴谋钱包筛选条件 -->
-                    <div class="section-card">
-                        <div class="section-header conspiracy">
-                            🐟 阴谋钱包筛选条件
-                        </div>
-                        <div class="section-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="modern-input-group">
-                                        <label class="modern-label">空白天数阈值</label>
-                                        <input 
-                                            type="number" 
-                                            class="modern-input" 
-                                            name="emptyDays" 
-                                            min="1" 
-                                            value="{{ request.form.get('emptyDays', '10') }}"
-                                            placeholder="默认 10 天"
-                                        >
+                    <!-- 标记模式内容 -->
+                    <div class="mode-content" id="labelMode">
+                        <div class="section-card">
+                            <div class="section-header address-input">🏷️ 地址标记生成</div>
+                            <div class="section-body">
+                                <div class="modern-input-group">
+                                    <label class="modern-label">钱包地址列表 *</label>
+                                    <textarea 
+                                        class="modern-textarea" 
+                                        name="addressList" 
+                                        id="addressList"
+                                        placeholder="请输入钱包地址，每行一个地址，支持带标记格式：&#10;E2rdM9Esp6YWygHzgYz1UKzMTkZonVU4LYK8fQYnYo9h&#10;suqh5sHtr8HyJ7q8scBimULPkPpA557prMG47xCHQfK&#10;CyaE1VxvBrahnPWkqm5VsdCvyS2QmNht2UFrKJHga54o:NYAN-盈利46.04k"
+                                        rows="8"
+                                    >{{ request.form.get('addressList', '') }}</textarea>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="modern-input-group">
+                                            <label class="modern-label">区块链网络</label>
+                                            <select class="modern-select" name="labelChainId">
+                                                <option value="501" {{ 'selected' if request.form.get('labelChainId', '501') == '501' }}>🟣 Solana</option>
+                                                <option value="1" {{ 'selected' if request.form.get('labelChainId') == '1' }}>🔷 Ethereum</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -766,116 +466,93 @@
             </div>
         </div>
 
-        <!-- 实时进度显示 -->
-        <div class="analysis-progress" id="analysisProgress">
-            <div class="progress-header">
-                <div class="progress-title">🔍 智能分析进行中</div>
-                <div class="progress-subtitle">正在分析钱包交易数据，请稍候...</div>
-            </div>
-            
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-            
-            <div class="progress-stats">
-                <div class="progress-stat">
-                    <div class="progress-stat-number" id="currentWallet">0</div>
-                    <div class="progress-stat-label">当前钱包</div>
-                </div>
-                <div class="progress-stat">
-                    <div class="progress-stat-number" id="totalWallets">0</div>
-                    <div class="progress-stat-label">总计钱包</div>
-                </div>
-                <div class="progress-stat">
-                    <div class="progress-stat-number" id="smartFound">0</div>
-                    <div class="progress-stat-label">聪明钱包</div>
-                </div>
-                <div class="progress-stat">
-                    <div class="progress-stat-number" id="conspiracyFound">0</div>
-                    <div class="progress-stat-label">阴谋钱包</div>
-                </div>
-            </div>
-            
-            <div class="progress-text" id="progressText">准备开始分析...</div>
-        </div>
-
         <!-- 结果显示 -->
         {% if results %}
         <div class="mt-5" id="resultsSection">
-            <!-- 统计卡片 -->
+            <!-- 统计信息 -->
+            {% if results.stats %}
             <div class="row mb-4">
-                <div class="col-md-3 col-sm-6">
-                    <div class="stat-card total">
+                <div class="col-md-3">
+                    <div class="stat-card">
                         <div class="stat-number">{{ results.stats.total_analyzed }}</div>
-                        <div class="stat-label">总分析数</div>
+                        <div class="stat-label">总分析数量</div>
                     </div>
                 </div>
-                <div class="col-md-3 col-sm-6">
-                    <div class="stat-card smart">
+                <div class="col-md-3">
+                    <div class="stat-card">
                         <div class="stat-number">{{ results.stats.smart_count }}</div>
-                        <div class="stat-label">聪明钱包</div>
+                        <div class="stat-label">智能钱包</div>
                     </div>
                 </div>
-                <div class="col-md-3 col-sm-6">
-                    <div class="stat-card conspiracy">
-                        <div class="stat-number">{{ results.stats.conspiracy_count }}</div>
-                        <div class="stat-label">阴谋钱包</div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-number">
+                            {% if results.stats.total_analyzed > 0 %}
+                                {{ "%.1f"|format((results.stats.smart_count / results.stats.total_analyzed * 100)) }}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">智能比例</div>
                     </div>
                 </div>
-                <div class="col-md-3 col-sm-6">
-                    <div class="stat-card other">
-                        <div class="stat-number">{{ results.stats.failed_count }}</div>
-                        <div class="stat-label">其他钱包</div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ results.stats.get('failed_count', 0) }}</div>
+                        <div class="stat-label">分析失败</div>
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             <!-- 聪明钱包列表 -->
             {% if results.smart_wallets %}
             <div class="result-card">
                 <div class="wallet-table">
                     <div class="table-header">
-                        <h4 class="mb-0">💎 聪明钱包 ({{ results.smart_wallets|length }})</h4>
-                        <button class="copy-btn" onclick="copyWalletRemarks('smart')">
-                            📋 复制备注
-                        </button>
+                        <h4 class="mb-0">💎 智能钱包标记结果 ({{ results.smart_wallets|length }})</h4>
+                        <div>
+                            <button class="copy-btn" onclick="copyWalletRemarks()">📋 复制标记</button>
+                            <button class="copy-btn" onclick="copyAddresses()">📋 复制地址</button>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="modern-table">
                             <thead>
                                 <tr>
+                                    <th>序号</th>
                                     <th>钱包地址</th>
                                     <th>智能标记</th>
-                                    <th>特征标签</th>
                                     <th>分析原因</th>
-                                    <th>Twitter信息</th>
+                                    <th>Twitter</th>
+                                    <th>原标记</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for wallet in results.smart_wallets %}
                                 <tr>
+                                    <td>{{ loop.index }}</td>
                                     <td>
-                                        <span class="wallet-address">
+                                        <span class="wallet-address" title="{{ wallet.address }}">
                                             {{ wallet.address[:8] }}...{{ wallet.address[-6:] }}
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="wallet-remark remark-smart">
-                                            {{ wallet.remark }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span style="font-size: 1.5rem;">{{ wallet.emoji }}</span>
+                                        <span class="wallet-remark">{{ wallet.remark }}</span>
                                     </td>
                                     <td>
                                         <small class="text-muted">{{ wallet.reason }}</small>
                                     </td>
                                     <td>
                                         {% if wallet.twitter_info and wallet.twitter_info.twitter_name %}
-                                            <small>
-                                                <strong style="color: #4f46e5;">{{ wallet.twitter_info.twitter_name }}</strong><br>
-                                                <span class="text-muted">{{ wallet.twitter_info.follow_count }} 关注</span>
-                                            </small>
+                                            <small><strong>{{ wallet.twitter_info.twitter_name }}</strong></small>
+                                        {% else %}
+                                            <small class="text-muted">无</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if wallet.existing_label %}
+                                            <small style="color: #7c3aed;">{{ wallet.existing_label }}</small>
                                         {% else %}
                                             <small class="text-muted">无</small>
                                         {% endif %}
@@ -888,251 +565,111 @@
                 </div>
             </div>
             {% endif %}
-
-            <!-- 阴谋钱包列表 -->
-            {% if results.conspiracy_wallets %}
-            <div class="result-card">
-                <div class="wallet-table">
-                    <div class="table-header conspiracy">
-                        <h4 class="mb-0">🐟 阴谋钱包 ({{ results.conspiracy_wallets|length }})</h4>
-                        <button class="copy-btn" onclick="copyWalletRemarks('conspiracy')">
-                            📋 复制备注
-                        </button>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="modern-table">
-                            <thead>
-                                <tr>
-                                    <th>钱包地址</th>
-                                    <th>标记</th>
-                                    <th>特征标签</th>
-                                    <th>分析原因</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for wallet in results.conspiracy_wallets %}
-                                <tr>
-                                    <td>
-                                        <span class="wallet-address">
-                                            {{ wallet.address[:8] }}...{{ wallet.address[-6:] }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="wallet-remark remark-conspiracy">
-                                            {{ wallet.remark }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span style="font-size: 1.5rem;">{{ wallet.emoji }}</span>
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">{{ wallet.reason }}</small>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
         </div>
+        {% endif %}
+
+        {% if results and results.smart_wallets %}
+        <script id="smartWalletData" type="application/json">
+            {{ results.smart_wallets | tojson }}
+        </script>
         {% endif %}
     </div>
 </div>
 
 <script>
-let analysisInProgress = false;
-let progressInterval;
+let currentMode = '{{ request.form.get("mode", "discover") }}';
 
-// 表单提交处理
-document.getElementById('analysisForm').addEventListener('submit', function(e) {
-    if (analysisInProgress) {
-        e.preventDefault();
-        return;
+function switchMode(mode) {
+    currentMode = mode;
+    
+    document.querySelectorAll('.mode-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.mode-content').forEach(content => content.classList.remove('active'));
+    
+    const targetTab = document.querySelector(`[data-mode="${mode}"]`);
+    if (targetTab) {
+        targetTab.classList.add('active');
     }
     
-    analysisInProgress = true;
-    showAnalysisProgress();
-    disableForm();
+    if (mode === 'discover') {
+        document.getElementById('discoverMode').classList.add('active');
+        document.getElementById('submitBtn').innerHTML = '🚀 开始智能分析';
+        document.getElementById('tokenAddress').required = true;
+        document.getElementById('tokenName').required = true;
+        document.getElementById('addressList').required = false;
+    } else {
+        document.getElementById('labelMode').classList.add('active');
+        document.getElementById('submitBtn').innerHTML = '🏷️ 生成智能标记';
+        document.getElementById('tokenAddress').required = false;
+        document.getElementById('tokenName').required = false;
+        document.getElementById('addressList').required = true;
+    }
     
-    // 模拟进度更新（在实际应用中，这应该通过WebSocket或SSE获取实时进度）
-    startProgressSimulation();
+    document.getElementById('modeInput').value = mode;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    switchMode(currentMode);
 });
 
-// 显示分析进度
-function showAnalysisProgress() {
-    document.getElementById('analysisProgress').style.display = 'block';
-    document.getElementById('analysisProgress').scrollIntoView({ behavior: 'smooth' });
-}
-
-// 隐藏分析进度
-function hideAnalysisProgress() {
-    document.getElementById('analysisProgress').style.display = 'none';
-    enableForm();
-    analysisInProgress = false;
-}
-
-// 禁用表单
-function disableForm() {
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '🔄 分析中...';
-    
-    // 禁用所有输入框
-    const inputs = document.querySelectorAll('.modern-input, .modern-select');
-    inputs.forEach(input => input.disabled = true);
-}
-
-// 启用表单
-function enableForm() {
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = '🚀 开始智能分析';
-    
-    // 启用所有输入框
-    const inputs = document.querySelectorAll('.modern-input, .modern-select');
-    inputs.forEach(input => input.disabled = false);
-}
-
-// 模拟进度更新
-function startProgressSimulation() {
-    const totalWallets = parseInt(document.querySelector('input[name="limit"]').value) || 300;
-    document.getElementById('totalWallets').textContent = totalWallets;
-    
-    let currentWallet = 0;
-    let smartFound = 0;
-    let conspiracyFound = 0;
-    
-    progressInterval = setInterval(() => {
-        currentWallet++;
-        
-        // 随机模拟发现聪明钱包和阴谋钱包
-        if (Math.random() < 0.05) { // 5% 概率发现聪明钱包
-            smartFound++;
-        }
-        if (Math.random() < 0.03) { // 3% 概率发现阴谋钱包
-            conspiracyFound++;
-        }
-        
-        updateProgress(currentWallet, totalWallets, smartFound, conspiracyFound);
-        
-        if (currentWallet >= totalWallets) {
-            clearInterval(progressInterval);
-            finishProgress();
-        }
-    }, 100); // 每100ms更新一次
-}
-
-// 更新进度显示
-function updateProgress(current, total, smart, conspiracy) {
-    const percentage = Math.round((current / total) * 100);
-    
-    document.getElementById('progressBar').style.width = percentage + '%';
-    document.getElementById('currentWallet').textContent = current;
-    document.getElementById('smartFound').textContent = smart;
-    document.getElementById('conspiracyFound').textContent = conspiracy;
-    
-    // 更新进度文本
-    const progressText = document.getElementById('progressText');
-    if (percentage < 30) {
-        progressText.textContent = '正在获取钱包数据...';
-    } else if (percentage < 60) {
-        progressText.textContent = '正在分析交易历史...';
-    } else if (percentage < 90) {
-        progressText.textContent = '正在进行智能筛选...';
-    } else {
-        progressText.textContent = '正在生成分析报告...';
-    }
-}
-
-// 完成进度
-function finishProgress() {
-    document.getElementById('progressText').textContent = '分析完成！正在跳转到结果页面...';
-    
-    setTimeout(() => {
-        hideAnalysisProgress();
-        // 在实际应用中，这里会显示真实的分析结果
-        showNotification('✨ 分析完成！请查看结果。', 'success');
-    }, 1000);
-}
-
-// 复制备注功能
-function copyWalletRemarks(type) {
-    let remarks = [];
-    
-    const selector = type === 'smart' ? 
-        '.remark-smart' : 
-        '.remark-conspiracy';
-    
-    document.querySelectorAll(selector).forEach(remark => {
-        const row = remark.closest('tr');
-        const address = row.querySelector('.wallet-address').textContent.trim();
-        const remarkText = remark.textContent.trim();
-        remarks.push(`${address}:${remarkText}`);
-    });
+function copyWalletRemarks() {
+    const results = getSmartWalletResults();
+    const remarks = results.map(wallet => `${wallet.address}:${wallet.remark}`);
     
     if (remarks.length > 0) {
-        const text = remarks.join(',');
+        copyToClipboard(remarks.join(','), `已复制 ${remarks.length} 条钱包标记`);
+    } else {
+        alert('没有数据可复制');
+    }
+}
+
+function copyAddresses() {
+    const results = getSmartWalletResults();
+    const addresses = results.map(wallet => wallet.address);
+    
+    if (addresses.length > 0) {
+        copyToClipboard(addresses.join('\n'), `已复制 ${addresses.length} 个钱包地址`);
+    } else {
+        alert('没有数据可复制');
+    }
+}
+
+function getSmartWalletResults() {
+    try {
+        const dataScript = document.getElementById('smartWalletData');
+        if (dataScript) {
+            return JSON.parse(dataScript.textContent);
+        }
+        return [];
+    } catch (e) {
+        console.error('解析数据失败:', e);
+        return [];
+    }
+}
+
+function copyToClipboard(text, message) {
+    if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => {
-            showNotification(`✨ 已成功复制 ${remarks.length} 条${type === 'smart' ? '聪明' : '阴谋'}钱包备注`, 'success');
+            alert(message);
         }).catch(() => {
-            showNotification('❌ 复制失败，请手动选择复制', 'error');
+            fallbackCopy(text, message);
         });
+    } else {
+        fallbackCopy(text, message);
     }
 }
 
-// 显示通知
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    const colors = {
-        success: 'linear-gradient(135deg, #4f46e5, #06b6d4)',
-        error: 'linear-gradient(135deg, #7c3aed, #2563eb)',
-        info: 'linear-gradient(135deg, #4f46e5, #7c3aed)'
-    };
-    
-    notification.style.cssText = `
-        position: fixed;
-        top: 30px;
-        right: 30px;
-        background: ${colors[type]};
-        color: white;
-        padding: 1.2rem 2rem;
-        border-radius: 16px;
-        box-shadow: 0 15px 40px rgba(79, 70, 229, 0.3);
-        z-index: 10001;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        max-width: 400px;
-        backdrop-filter: blur(20px);
-        animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    `;
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-        setTimeout(() => {
-            if (document.body.contains(notification)) {
-                document.body.removeChild(notification);
-            }
-        }, 500);
-    }, 4000);
+function fallbackCopy(text, message) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        alert(message);
+    } catch (err) {
+        alert('复制失败，请手动复制');
+    }
+    document.body.removeChild(textArea);
 }
-
-// 添加动画样式
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%) translateY(-20px); opacity: 0; }
-        to { transform: translateX(0) translateY(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-        from { transform: translateX(0) translateY(0); opacity: 1; }
-        to { transform: translateX(100%) translateY(-20px); opacity: 0; }
-    }
-`;
-document.head.appendChild(style);
 </script>
 {% endblock %}
