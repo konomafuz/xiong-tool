@@ -10,24 +10,52 @@ class TopEarnersTracker:
         self.request_delay = 0.8  # 增加请求间隔
         self.max_timeout = 20  # 单个请求最大超时
         
+        # 支持的链配置
+        self.supported_chains = {
+            "1": {"name": "Ethereum", "symbol": "ETH"},
+            "56": {"name": "BSC", "symbol": "BNB"},
+            "137": {"name": "Polygon", "symbol": "MATIC"},
+            "501": {"name": "Solana", "symbol": "SOL"},
+        }
+        
     def fetch_top_traders_optimized(self, token_address, chain_id="501", limit=50):
-        """优化的获取TOP交易者方法，适配 Render 环境"""
-        print(f"🔍 开始获取TOP交易者，代币: {token_address[:8]}..., 链: {chain_id}")
+        """优化的获取TOP交易者方法，支持多链"""
+        chain_info = self.supported_chains.get(str(chain_id), {"name": "Unknown", "symbol": "?"})
+        print(f"🔍 开始获取TOP交易者")
+        print(f"   代币: {token_address[:8]}...")
+        print(f"   链: {chain_info['name']} (ID: {chain_id})")
+        print(f"   数量: {limit}")
         
         url = "https://web3.okx.com/priapi/v1/dx/market/v2/pnl/top-trader/ranking-list"
         
         params = {
-            "chainId": chain_id,
+            "chainId": str(chain_id),  # 确保是字符串
             "tokenContractAddress": token_address,
             "t": int(time.time() * 1000)
         }
         
+        # 根据查询数量和链类型调整策略
+        if chain_id == "1":  # ETH链可能响应较慢
+            base_timeout = 25
+        else:
+            base_timeout = self.max_timeout
+            
+        if limit > 200:
+            max_retries = 1
+            timeout = base_timeout + 5
+        elif limit > 100:
+            max_retries = 2
+            timeout = base_timeout + 2
+        else:
+            max_retries = 3
+            timeout = base_timeout
+        
         try:
-            # 使用较短超时和重试
+            print(f"📡 发送请求到 OKX API...")
             response = fetch_data_robust(
                 url, params, 
-                max_retries=2, 
-                timeout=self.max_timeout,
+                max_retries=max_retries, 
+                timeout=timeout,
                 backoff_factor=0.5
             )
             
@@ -36,23 +64,27 @@ class TopEarnersTracker:
                 return []
                 
             if response.get('code') != 0:
-                print(f"❌ 请求失败：{response}")
+                error_msg = response.get('msg', 'Unknown error')
+                print(f"❌ API返回错误：code={response.get('code')}, msg={error_msg}")
                 return []
             
             data = response.get('data', {})
             traders = data.get('list', [])
             
             if not traders:
-                print(f"📝 API返回空数据")
+                print(f"📝 该代币在 {chain_info['name']} 链上暂无盈利数据")
                 return []
                 
-            print(f"✅ 获取到 {len(traders)} 个交易者")
+            print(f"✅ 从 {chain_info['name']} 链获取到 {len(traders)} 个交易者")
             
-            # 限制返回数量并手动清理内存
-            result = traders[:limit]
+            # 根据用户请求的数量返回
+            result = traders[:limit] if limit <= len(traders) else traders
+            
+            # 清理内存
             del traders, data, response
             gc.collect()
             
+            print(f"🎯 最终返回 {len(result)} 个交易者")
             return result
             
         except Exception as e:
@@ -60,8 +92,11 @@ class TopEarnersTracker:
             return []
     
     def fetch_address_token_list_optimized(self, wallet_address: str, chain_id=501, max_records=100):
-        """优化的获取地址代币列表，分批获取并控制内存"""
-        print(f"🔍 获取地址代币列表: {wallet_address[:8]}...")
+        """优化的获取地址代币列表，支持多链"""
+        chain_info = self.supported_chains.get(str(chain_id), {"name": "Unknown", "symbol": "?"})
+        print(f"🔍 获取地址代币列表")
+        print(f"   地址: {wallet_address[:8]}...")
+        print(f"   链: {chain_info['name']} (ID: {chain_id})")
         
         url = "https://web3.okx.com/priapi/v1/dx/market/v2/pnl/token-list"
         
@@ -80,7 +115,7 @@ class TopEarnersTracker:
                 
                 params = {
                     "walletAddress": wallet_address,
-                    "chainId": chain_id,
+                    "chainId": str(chain_id),  # 确保是字符串
                     "isAsc": False,
                     "sortType": 1,
                     "offset": offset,
@@ -94,10 +129,13 @@ class TopEarnersTracker:
                 if batch > 0:
                     time.sleep(self.request_delay)
                 
+                # ETH链可能需要更长超时
+                timeout = 25 if chain_id == "1" else self.max_timeout
+                
                 response = fetch_data_robust(
                     url, params, 
                     max_retries=2, 
-                    timeout=self.max_timeout,
+                    timeout=timeout,
                     backoff_factor=0.5
                 )
                 
@@ -106,7 +144,7 @@ class TopEarnersTracker:
                     break
                 
                 data = response.get('data', {})
-                tokens = data.get('list', [])
+                tokens = data.get('tokenList', [])  # 注意这里是 tokenList
                 
                 if not tokens:
                     print(f"📝 第 {batch + 1} 批无数据，停止获取")
@@ -118,9 +156,8 @@ class TopEarnersTracker:
                 # 内存清理
                 del tokens, data, response
                 
-                # 检查是否达到目标数量或API返回的总数
-                total = data.get('total', 0) if 'data' in locals() else 0
-                if len(all_tokens) >= max_records or len(all_tokens) >= total:
+                # 检查是否达到目标数量
+                if len(all_tokens) >= max_records:
                     break
             
             print(f"🎯 最终获取到 {len(all_tokens)} 个代币")
@@ -133,27 +170,32 @@ class TopEarnersTracker:
             print(f"❌ 请求异常: {e}")
             return []
 
-# 更新便捷函数，移除硬编码限制
+# 更新便捷函数，支持多链
 def fetch_top_traders(token_address, chain_id="501", limit=50):
-    """获取指定代币的顶级盈利交易者 - 移除硬编码限制"""
+    """获取指定代币的顶级盈利交易者 - 支持多链"""
     tracker = TopEarnersTracker()
-    # 移除 min(limit, 50) 限制，允许用户选择的数量
-    return tracker.fetch_top_traders_optimized(token_address, chain_id, limit)
+    return tracker.fetch_top_traders_optimized(token_address, str(chain_id), limit)
 
 def fetch_address_token_list(wallet_address: str, chain_id=501, max_records=100):
-    """获取地址的代币列表 - 移除硬编码限制"""
+    """获取地址的代币列表 - 支持多链"""
     tracker = TopEarnersTracker()
-    # 移除 min(max_records, 100) 限制
-    return tracker.fetch_address_token_list_optimized(wallet_address, chain_id, max_records)
+    return tracker.fetch_address_token_list_optimized(wallet_address, str(chain_id), max_records)
 
-def prepare_traders_data(traders):
-    """处理交易者数据，转换为DataFrame格式 - 内存优化版本"""
+def prepare_traders_data(traders, chain_id="501"):
+    """处理交易者数据，转换为DataFrame格式 - 支持多链"""
     if not traders:
         import pandas as pd
         return pd.DataFrame()
     
     try:
         import pandas as pd
+        
+        # 链信息
+        chain_names = {
+            "1": "ETH", "56": "BSC", "137": "MATIC", "501": "SOL",
+            "42161": "ARB", "10": "OP", "8453": "BASE", "43114": "AVAX"
+        }
+        chain_name = chain_names.get(str(chain_id), f"Chain{chain_id}")
         
         def safe_extract_tags(tag_data):
             """安全提取标签 - 简化版本"""
@@ -221,14 +263,15 @@ def prepare_traders_data(traders):
                 'roi': safe_get_float(trader, 'totalProfitPercentage'),
                 'rank': i + 1,
                 'tags': ', '.join(tags[:3]),  # 最多显示3个标签
-                'chainId': trader.get('chainId', ''),
+                'chainId': str(chain_id),
+                'chainName': chain_name,
                 'lastTradeTime': trader.get('lastTradeTime', '')
             }
             
             processed_data.append(processed_trader)
         
         df = pd.DataFrame(processed_data)
-        print(f"✅ 交易者数据转换完成，共 {len(df)} 条记录")
+        print(f"✅ {chain_name} 链交易者数据转换完成，共 {len(df)} 条记录")
         
         # 清理内存
         del processed_data, traders
@@ -241,14 +284,21 @@ def prepare_traders_data(traders):
         import pandas as pd
         return pd.DataFrame()
 
-def prepare_tokens_data(tokens):
-    """处理代币数据 - 内存优化版本"""
+def prepare_tokens_data(tokens, chain_id="501"):
+    """处理代币数据 - 支持多链"""
     if not tokens:
         import pandas as pd
         return pd.DataFrame()
     
     try:
         import pandas as pd
+        
+        # 链信息
+        chain_names = {
+            "1": "ETH", "56": "BSC", "137": "MATIC", "501": "SOL",
+            "42161": "ARB", "10": "OP", "8453": "BASE", "43114": "AVAX"
+        }
+        chain_name = chain_names.get(str(chain_id), f"Chain{chain_id}")
         
         # 只处理必要字段
         processed_data = []
@@ -266,12 +316,14 @@ def prepare_tokens_data(tokens):
                 'sellValue': float(token.get('sellValue', 0)),
                 'holdValue': float(token.get('holdValue', 0)),
                 'currentPrice': float(token.get('currentPrice', 0)),
-                'roi': float(token.get('roi', 0))
+                'roi': float(token.get('roi', 0)),
+                'chainId': str(chain_id),
+                'chainName': chain_name
             }
             processed_data.append(processed_token)
         
         df = pd.DataFrame(processed_data)
-        print(f"✅ 代币数据转换完成，共 {len(df)} 条记录")
+        print(f"✅ {chain_name} 链代币数据转换完成，共 {len(df)} 条记录")
         
         # 清理内存
         del processed_data, tokens
@@ -284,22 +336,37 @@ def prepare_tokens_data(tokens):
         import pandas as pd
         return pd.DataFrame()
 
-# 简化的测试函数
+# 测试函数支持多链
 def test_fetch_top_traders():
-    """测试获取TOP交易者功能 - 简化版本"""
+    """测试获取TOP交易者功能 - 多链版本"""
     print("🧪 测试获取TOP交易者...")
     
-    test_token = "HtTYHz1Kf3rrQo6AqDLmss7gq5WrkWAaXn3tupUZbonk"
-    test_chain = "501"
+    # 测试不同链
+    test_cases = [
+        {
+            "token": "HtTYHz1Kf3rrQo6AqDLmss7gq5WrkWAaXn3tupUZbonk", 
+            "chain": "501", 
+            "name": "Solana测试"
+        },
+        {
+            "token": "0xdd3b11ef34cd511a2da159034a05fcb94d806686", 
+            "chain": "1", 
+            "name": "Ethereum测试"
+        }
+    ]
     
-    traders = fetch_top_traders(test_token, test_chain, 5)  # 只测试5个
-    
-    if traders:
-        print(f"✅ 测试成功！获取到 {len(traders)} 个交易者")
-        df = prepare_traders_data(traders)
-        print(f"📊 DataFrame形状: {df.shape}")
-    else:
-        print("❌ 测试失败！")
+    for test_case in test_cases:
+        print(f"\n🔍 {test_case['name']}")
+        traders = fetch_top_traders(test_case["token"], test_case["chain"], 3)
+        
+        if traders:
+            print(f"✅ 测试成功！获取到 {len(traders)} 个交易者")
+            df = prepare_traders_data(traders, test_case["chain"])
+            print(f"📊 DataFrame形状: {df.shape}")
+            if not df.empty:
+                print(f"📈 链名: {df.iloc[0]['chainName']}")
+        else:
+            print("❌ 测试失败！")
 
 if __name__ == "__main__":
     test_fetch_top_traders()
