@@ -8,6 +8,8 @@ import json
 from modules import holder, parse_transactions, estimate_costs, cluster_addresses
 import os
 from modules import wallet_tag_engine
+import gc
+import signal
 
 
 app = Flask(__name__)
@@ -735,6 +737,130 @@ def wallet_analyzer():
 def smart_wallet():
     """智能钱包分析 - 重定向到新分析器"""
     return redirect(url_for('wallet_analyzer'))
+
+@app.route('/get_top_profit', methods=['POST'])
+def get_top_profit():
+    """获取 TOP 盈利地址 - 移除数量限制"""
+    try:
+        data = request.get_json()
+        token_address = data.get('token_address', '').strip()
+        chain_id = data.get('chain_id', '501')
+        # 移除数量限制，允许用户选择的值
+        limit = int(data.get('limit', 50))
+        
+        # 只对极端值做合理限制
+        if limit > 1000:
+            limit = 1000
+        elif limit < 1:
+            limit = 50
+        
+        if not token_address:
+            return jsonify({'error': '代币地址不能为空'}), 400
+        
+        print(f"🔍 开始查询代币 {token_address[:8]}... 的盈利地址，数量: {limit}")
+        
+        # 根据查询数量调整超时时间
+        if limit <= 50:
+            timeout_seconds = 22
+        elif limit <= 100:
+            timeout_seconds = 28
+        elif limit <= 200:
+            timeout_seconds = 35
+        else:
+            timeout_seconds = 45  # 大量查询需要更长时间
+        
+        # 设置动态超时保护
+        def timeout_handler(signum, frame):
+            raise TimeoutError("查询超时")
+        
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(timeout_seconds)
+        
+        try:
+            # 使用用户选择的数量
+            traders = fetch_top_traders(token_address, chain_id, limit)
+            
+            if not traders:
+                signal.alarm(0)
+                return jsonify({
+                    'error': '未找到该代币的盈利地址数据',
+                    'success': False
+                }), 404
+            
+            # 处理数据
+            df = prepare_traders_data(traders)
+            
+            if df.empty:
+                signal.alarm(0)
+                return jsonify({
+                    'error': '数据处理失败',
+                    'success': False
+                }), 500
+            
+            # 转换为JSON格式
+            result_data = []
+            for _, row in df.head(limit).iterrows():
+                result_data.append({
+                    'address': row['walletAddress'],
+                    'pnl': float(row['totalPnl']),
+                    'roi': float(row['roi']),
+                    'buy_count': int(row['buyCount']),
+                    'sell_count': int(row['sellCount']),
+                    'win_rate': float(row['winRate']),
+                    'tags': row['tags'],
+                    'rank': int(row['rank'])
+                })
+            
+            signal.alarm(0)
+            
+            # 手动垃圾回收
+            del traders, df
+            gc.collect()
+            
+            return jsonify({
+                'success': True,
+                'data': result_data,
+                'total': len(result_data),
+                'message': f'成功获取 {len(result_data)} 个盈利地址'
+            })
+            
+        except TimeoutError:
+            signal.alarm(0)
+            return jsonify({
+                'error': f'查询超时（{timeout_seconds}秒），请尝试减少查询数量',
+                'success': False
+            }), 408
+            
+    except Exception as e:
+        print(f"❌ 查询盈利地址失败: {e}")
+        return jsonify({
+            'error': f'查询失败: {str(e)}',
+            'success': False
+        }), 500
+    finally:
+        # 确保清理内存
+        gc.collect()
+
+# 添加系统监控路由
+@app.route('/system_status')
+def system_status():
+    """系统状态监控"""
+    try:
+        import psutil
+        import os
+        
+        # 获取内存使用情况
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        
+        return jsonify({
+            'memory_usage_mb': memory_info.rss / 1024 / 1024,
+            'memory_percent': process.memory_percent(),
+            'status': 'healthy'
+        })
+    except:
+        return jsonify({'status': 'unknown'})
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)

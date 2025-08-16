@@ -173,12 +173,12 @@ class WalletTagEngine:
             balance_millions = total_balance_usd / 1000000
             has_large_holding = balance_millions >= 0.1
             
-            # 确定星星等级
+            # 确定星星等级 - 使用金牌银牌emoji
             star_level = ""
             if high_profit_tokens >= 10:
-                star_level = "🌟"  # 金色星星
+                star_level = "🥇"  # 金牌：10个以上代币收益>1万
             elif high_profit_tokens >= 5:
-                star_level = "⭐"  # 银色星星
+                star_level = "🥈"  # 银牌：5-9个代币收益>1万
             
             # 基础统计
             stats = {
@@ -420,3 +420,4 @@ def test_tag_engine():
 
 if __name__ == "__main__":
     test_tag_engine()
+

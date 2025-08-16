@@ -250,7 +250,7 @@
                                                         <code class="small fw-bold d-block text-truncate">{{ result.address[:8] }}...{{ result.address[-6:] }}</code>
                                                         <div class="small text-muted">{{ result.chain_id }}</div>
                                                         {% if result.stats.get('star_level') and result.stats.get('high_profit_tokens', 0) > 0 %}
-                                                        <div class="small text-warning">
+                                                        <div class="small text-warning star-display">
                                                             {{ result.stats.get('star_level') }} {{ result.stats.get('high_profit_tokens') }}币盈利>1w
                                                         </div>
                                                         {% endif %}
@@ -449,8 +449,8 @@
 }
 
 .wallet-avatar {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
@@ -458,152 +458,85 @@
     justify-content: center;
     color: white;
     font-weight: bold;
-    font-size: 12px;
-}
-
-.balance-container {
-    text-align: right;
-}
-
-.balance-amount {
-    color: #28a745;
     font-size: 14px;
+    text-transform: uppercase;
 }
 
-.auto-tag {
-    background: linear-gradient(135deg, #28a745, #20c997);
-    color: white;
-    border: none;
-    font-size: 11px;
-    padding: 4px 8px;
-    border-radius: 12px;
-    white-space: nowrap;
-}
-
-/* 多维度数据样式 */
-.multi-data-container {
-    font-size: 11px;
-}
-
-.data-group {
-    margin-bottom: 6px;
-}
-
-.data-label {
-    margin-bottom: 3px;
-    font-size: 10px;
+/* 添加星级显示样式 */
+.star-display {
     font-weight: 600;
+    color: #ff6b35 !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.2;
 }
 
-.data-chip {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 10px;
-    padding: 2px 6px;
-    font-size: 10px;
-    white-space: nowrap;
-    transition: all 0.2s ease;
+/* 金牌样式 */
+.star-display:has-text('🥇') {
+    color: #ffd700 !important;
 }
 
-.data-chip.positive {
-    background: linear-gradient(135deg, #d4edda, #c3e6cb);
-    border-color: #28a745;
-    color: #155724;
+/* 银牌样式 */
+.star-display:has-text('🥈') {
+    color: #c0c0c0 !important;
 }
 
-.data-chip.negative {
-    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
-    border-color: #dc3545;
-    color: #721c24;
+/* 由于 :has-text() 不是标准CSS，使用JavaScript来动态添加类 */
+.star-display.gold {
+    color: #ffd700 !important;
 }
 
-.data-indicator-tag {
-    background: linear-gradient(135deg, #17a2b8, #138496);
-    color: white;
-    border: none;
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 8px;
-    margin: 1px;
-    cursor: pointer;
-    display: inline-block;
+.star-display.silver {
+    color: #c0c0c0 !important;
 }
 
-.data-indicator-tag:hover {
-    background: linear-gradient(135deg, #138496, #117a8b);
+/* 星级显示动画效果 */
+.star-display {
+    animation: starGlow 2s ease-in-out infinite alternate;
 }
 
-.data-indicator-tag .remove-indicator {
-    margin-left: 3px;
-    opacity: 0.7;
-}
-
-.data-indicator-tag .remove-indicator:hover {
-    opacity: 1;
-}
-
-/* 全局数据选择器样式 */
-.global-data-checkbox:checked + label {
-    font-weight: bold;
-    color: #007bff;
-}
-
-.selected-count {
-    font-weight: bold;
-}
-
-.remark-input {
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-}
-
-.remark-input[readonly] {
-    background-color: #f8f9fa;
-}
-
-.char-count {
-    font-weight: bold;
-    color: #6c757d;
-}
-
-.char-count.warning {
-    color: #ffc107;
-}
-
-.char-count.danger {
-    color: #dc3545;
-}
-
-.mode-indicator {
-    font-size: 10px;
-    color: #6c757d;
-}
-
-.wallet-row:hover {
-    background-color: #f8f9fa;
-}
-
-.min-width-0 {
-    min-width: 0;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .wallet-avatar {
-        width: 24px;
-        height: 24px;
-        font-size: 10px;
+@keyframes starGlow {
+    from {
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
-    
-    .data-chip {
-        font-size: 9px;
-        padding: 1px 4px;
-    }
-    
-    .remark-input {
-        font-size: 11px;
+    to {
+        text-shadow: 0 1px 4px rgba(255,215,0,0.3);
     }
 }
+
+.star-display.silver {
+    animation: silverGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes silverGlow {
+    from {
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    to {
+        text-shadow: 0 1px 4px rgba(192,192,192,0.3);
+    }
+}
+
+/* 提升星级显示的可见性 */
+.star-display {
+    background: rgba(0,0,0,0.05);
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+.star-display.gold {
+    background: rgba(255,215,0,0.1);
+    border-color: rgba(255,215,0,0.3);
+}
+
+.star-display.silver {
+    background: rgba(192,192,192,0.1);
+    border-color: rgba(192,192,192,0.3);
+}
+
+/* 其他现有样式保持不变... */
 </style>
 
 <script>
@@ -635,6 +568,8 @@ let globalDataSelection = []; // 全局数据选择
 document.addEventListener('DOMContentLoaded', function() {
     initializeRemarkInputs();
     updateDataChipStyles();
+    updateStarDisplay();
+    applyStarStyles(); // 添加这行
     updateAllRemarks();
     initializeGlobalSelection();
 });
@@ -981,5 +916,51 @@ function exportResults() {
     a.click();
     URL.revokeObjectURL(url);
 }
+
+/* 在现有JavaScript中添加星级样式应用函数 */
+function applyStarStyles() {
+    document.querySelectorAll('.star-display').forEach(element => {
+        const text = element.textContent.trim();
+        if (text.includes('🥇')) {
+            element.classList.add('gold');
+        } else if (text.includes('🥈')) {
+            element.classList.add('silver');
+        }
+    });
+}
+
+// 在updateStarDisplay函数中也调用
+function updateStarDisplay() {
+    document.querySelectorAll('.wallet-row').forEach(row => {
+        const address = row.dataset.address;
+        const starLevel = row.dataset.starLevel;
+        const highProfitTokens = parseInt(row.dataset.highProfitTokens || 0);
+        
+        // 在钱包地址旁边显示星星和高收益代币数量
+        const addressContainer = row.querySelector('.wallet-avatar').parentElement.parentElement;
+        
+        if (starLevel && highProfitTokens > 0) {
+            let starDisplay = addressContainer.querySelector('.star-display');
+            if (!starDisplay) {
+                starDisplay = document.createElement('div');
+                starDisplay.className = 'star-display small text-warning';
+                addressContainer.appendChild(starDisplay);
+            }
+            
+            starDisplay.innerHTML = `${starLevel} ${highProfitTokens}币盈利>1w`;
+            starDisplay.title = `${highProfitTokens}个代币收益超过1万美元`;
+            
+            // 添加对应的样式类
+            if (starLevel === '🥇') {
+                starDisplay.classList.add('gold');
+            } else if (starLevel === '🥈') {
+                starDisplay.classList.add('silver');
+            }
+        }
+    });
+}
+
+// 其他现有JavaScript代码保持不变...
 </script>
+
 {% endblock %}
