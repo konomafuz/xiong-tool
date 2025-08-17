@@ -30,12 +30,36 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # 数据库初始化
 try:
+    logger.info("🔄 开始数据库初始化...")
     db_config = init_database()
     logger.info("🎯 数据库连接成功！")
 except Exception as e:
     logger.error(f"❌ 数据库连接失败: {e}")
     logger.warning("⚠️  应用将在无数据库模式下运行")
     db_config = None
+
+# 🔧 免费版Render：应用启动时自动初始化数据库
+def initialize_database_tables():
+    """在应用启动时初始化数据库表（免费版Render适配）"""
+    if not db_config:
+        logger.warning("⚠️  数据库配置不可用，跳过表初始化")
+        return False
+    
+    try:
+        logger.info("📋 初始化数据库表...")
+        from models.database_models import Base
+        
+        # 创建所有表
+        Base.metadata.create_all(bind=db_config.get_engine())
+        logger.info("✅ 数据库表初始化完成")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ 数据库表初始化失败: {e}")
+        return False
+
+# 执行数据库表初始化
+initialize_database_tables()
 
 @app.route("/")
 def index():
@@ -1000,4 +1024,9 @@ def cleanup_connections():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # 获取端口（Render会提供PORT环境变量）
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    
+    logger.info(f"🌐 启动Flask应用，端口: {port}")
+    app.run(debug=debug, host="0.0.0.0", port=port)
