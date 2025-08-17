@@ -1,0 +1,20 @@
+# Render平台部署配置
+# 这个文件用于Render平台的自动化部署
+
+# 启动命令
+start_command = "python app.py"
+
+# 构建命令（可选 - 使用简化版）
+build_command = "python deploy.py"
+
+# 环境变量
+environment = "production"
+
+# Python版本
+python_version = "3.11"
+
+# 健康检查路径
+health_check_path = "/system_status"
+
+# 端口
+port = 5000

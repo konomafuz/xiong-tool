@@ -11,10 +11,31 @@ from modules import wallet_tag_engine
 import gc
 import signal
 
+# 数据库相关导入
+from dotenv import load_dotenv
+from config.database import init_database, get_db_config, cleanup_db_connections
+from services.database_service import TopTraderService, WalletTagService, AnalysisJobService, with_long_running_session
+import logging
+
+# 加载环境变量
+load_dotenv()
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here'  # 设置安全的密钥
+app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key_here')  # 从环境变量获取
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+# 数据库初始化
+try:
+    db_config = init_database()
+    logger.info("🎯 数据库连接成功！")
+except Exception as e:
+    logger.error(f"❌ 数据库连接失败: {e}")
+    logger.warning("⚠️  应用将在无数据库模式下运行")
+    db_config = None
 
 @app.route("/")
 def index():
@@ -73,8 +94,29 @@ def top_earners_view():
 
     if request.method == "POST" and token_address and chain_id:
         try:
-            # 使用新的数据获取函数
-            traders = top_earners.fetch_top_traders(token_address, chain_id=chain_id, limit=limit)
+            # 优先使用数据库缓存（如果启用且数据新鲜）
+            traders = []
+            use_cache = os.getenv('ENABLE_DATABASE_CACHE', 'True').lower() == 'true'
+            
+            if use_cache and db_config:
+                logger.info("🔍 检查数据库缓存...")
+                if TopTraderService.is_data_fresh(token_address, chain_id, max_age_hours=1):
+                    traders = TopTraderService.get_traders(token_address, chain_id, limit)
+                    logger.info(f"✅ 使用数据库缓存，获取到 {len(traders)} 个交易者")
+            
+            # 如果缓存无数据，从API获取
+            if not traders:
+                logger.info("🌐 从API获取数据...")
+                traders = top_earners.fetch_top_traders(token_address, chain_id=chain_id, limit=limit)
+                
+                # 保存到数据库（如果启用数据库）
+                if traders and db_config:
+                    try:
+                        TopTraderService.save_traders(traders, token_address, chain_id)
+                        logger.info("💾 数据已保存到数据库")
+                    except Exception as e:
+                        logger.warning(f"⚠️  保存到数据库失败: {e}")
+            
             df = top_earners.prepare_traders_data(traders)
             
             # 保存完整数据到session
@@ -653,8 +695,9 @@ def address_monitor():
                          ])
 
 @app.route("/wallet_analyzer", methods=["GET", "POST"])
+@with_long_running_session  # 🔧 使用长任务装饰器避免连接抢占
 def wallet_analyzer():
-    """钱包智能分析器"""
+    """钱包智能分析器 - Render优化版"""
     if request.method == "POST":
         wallet_addresses_text = request.form.get("walletAddresses", "").strip()
         chain_id = request.form.get("chainId", "501")
@@ -728,6 +771,11 @@ def wallet_analyzer():
             print(f"❌ 分析异常: {e}")
             import traceback
             print(f"📝 异常详情: {traceback.format_exc()}")
+            
+            # 🔧 如果是数据库连接问题，清理连接池
+            if "connection" in str(e).lower():
+                cleanup_db_connections()
+                
             flash(f"分析失败: {str(e)}", "danger")
             return render_template("wallet_analyzer.html")
     
@@ -844,22 +892,111 @@ def get_top_profit():
 # 添加系统监控路由
 @app.route('/system_status')
 def system_status():
-    """系统状态监控"""
+    """系统状态监控 - 包含连接池状态"""
     try:
         import psutil
         import os
+        from services.database_service import get_connection_pool_status
         
         # 获取内存使用情况
         process = psutil.Process(os.getpid())
         memory_info = process.memory_info()
         
+        # 数据库连接测试
+        db_status = "connected" if db_config and db_config.test_connection() else "disconnected"
+        
+        # 🔧 获取连接池状态
+        pool_status = get_connection_pool_status() if db_config else {}
+        
         return jsonify({
             'memory_usage_mb': memory_info.rss / 1024 / 1024,
             'memory_percent': process.memory_percent(),
+            'database_status': db_status,
+            'connection_pool': pool_status,  # 新增连接池信息
             'status': 'healthy'
         })
-    except:
-        return jsonify({'status': 'unknown'})
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        })
+
+@app.route('/db_test')
+def db_test():
+    """数据库连接测试"""
+    if not db_config:
+        return jsonify({
+            'status': 'error',
+            'message': '数据库配置未初始化'
+        }), 500
+    
+    try:
+        # 测试连接
+        is_connected = db_config.test_connection()
+        
+        if is_connected:
+            # 获取数据库信息
+            with db_config.get_session() as session:
+                from sqlalchemy import text
+                result = session.execute(text("""
+                    SELECT 
+                        current_database() as database_name,
+                        current_user as user_name,
+                        version() as version
+                """))
+                db_info = result.fetchone()
+            
+            return jsonify({
+                'status': 'success',
+                'message': '数据库连接正常',
+                'database_name': db_info.database_name,
+                'user_name': db_info.user_name,
+                'version': db_info.version.split(' ')[0:2]  # 只显示PostgreSQL版本
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': '数据库连接失败'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'数据库测试失败: {str(e)}'
+        }), 500
+
+# 🔧 应用关闭时清理资源
+@app.teardown_appcontext
+def cleanup_db_context(error):
+    """应用上下文清理时，确保数据库连接被正确关闭"""
+    try:
+        if db_config:
+            # 清理scoped_session
+            db_config.SessionLocal.remove()
+    except Exception as e:
+        logger.error(f"❌ 清理数据库上下文失败: {e}")
+
+# 🔧 定期清理连接池（可选）
+@app.route('/cleanup_connections', methods=['POST'])
+def cleanup_connections():
+    """手动清理数据库连接池"""
+    try:
+        if db_config:
+            cleanup_db_connections()
+            return jsonify({
+                'status': 'success',
+                'message': '连接池清理完成'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': '数据库未初始化'
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'清理失败: {str(e)}'
+        }), 500
 
 
 if __name__ == "__main__":

@@ -19,3 +19,7 @@ python-dateutil>=2.8.0
 
 # 配置管理
 python-dotenv>=1.0.0
+
+# 数据库
+psycopg2-binary>=2.9.0
+sqlalchemy>=2.0.0
