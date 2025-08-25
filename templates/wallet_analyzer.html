@@ -41,19 +41,20 @@
                             </div>
 
                             <!-- 备注处理选项 -->
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <label for="preserveRemarks" class="form-label fw-semibold text-muted">
-                                    <i class="fas fa-comment me-2"></i>备注处理
+                                    <i class="fas fa-comment me-2"></i>备注处理方式
                                 </label>
                                 <select class="form-select shadow-sm" id="preserveRemarks" name="preserveRemarks">
-                                    <option value="overwrite" {{ 'selected' if preserve_remarks == 'overwrite' else '' }}>覆盖原备注</option>
-                                    <option value="append" {{ 'selected' if preserve_remarks == 'append' else '' }}>追加到后面</option>
-                                    <option value="prepend">添加到前面</option>
+                                    <option value="replace" {{ 'selected' if preserve_remarks == 'replace' else '' }}>覆盖原备注</option>
+                                    <option value="append" {{ 'selected' if preserve_remarks == 'append' else '' }}>新标签+原备注</option>
+                                    <option value="prepend" {{ 'selected' if preserve_remarks == 'prepend' else '' }}>原备注+新标签</option>
+                                    <option value="ignore" {{ 'selected' if preserve_remarks == 'ignore' else '' }}>仅保留原备注</option>
                                 </select>
                             </div>
 
                             <!-- 地址输入 -->
-                            <div class="col-md-6">
+                            <div class="col-md-5">
                                 <label for="walletAddresses" class="form-label fw-semibold text-muted">
                                     <i class="fas fa-wallet me-2"></i>钱包地址列表
                                 </label>
@@ -61,11 +62,11 @@
                                          id="walletAddresses" 
                                          name="walletAddresses" 
                                          rows="4" 
-                                         placeholder="支持格式：&#10;纯地址: 38tAutsiZWaJ8MsMJVgKCx4U5LHwZM2g6StmQpKLRqz6&#10;带备注: GpMZbSM2GgvTKHJirzeGfMFoaZ8UR2X7F4v8vHTvxFbL:kori-持2.6%&#10;复杂备注: WinLrk2oddUtCfyGsLo4ajjxZGy6pwzDugFiE5PJNiU:kori-持1.7%-盈122.7k" 
+                                         placeholder="支持格式：&#10;纯地址（换行分隔）: &#10;38tAutsiZWaJ8MsMJVgKCx4U5LHwZM2g6StmQpKLRqz6&#10;&#10;带备注（逗号分隔）:&#10;0x424de83e135d0be9a4b6b1268b04bcd4d92f7c98:REKT-持33.7%,0x7130e2563974219f3dd152575c7468d7c2ad0d96:REKT-持3.6%" 
                                          required>{{ wallet_addresses or '' }}</textarea>
                                 <div class="form-text text-muted small">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    支持 <code>地址:备注</code> 格式，每行一个，最多10个地址
+                                    支持 <code>地址:备注</code> 格式，逗号或换行分隔，最多100个地址
                                 </div>
                             </div>
 
@@ -357,8 +358,10 @@
                                                                class="form-control form-control-sm remark-input" 
                                                                data-address="{{ result.address }}"
                                                                data-original-remark="{{ result.get('original_remark', '') }}"
+                                                               data-generated-tags="{{ result.get('generated_tags', '') }}"
                                                                data-balance-millions="{{ result.stats.get('balance_millions', 0) }}"
                                                                data-has-large-holding="{{ result.stats.get('has_large_holding', False)|lower }}"
+                                                               value="{{ result.get('final_remark', '') }}"
                                                                placeholder="自动生成..."
                                                                maxlength="80">
                                                         <button class="btn btn-outline-secondary btn-sm" 
@@ -369,9 +372,21 @@
                                                         </button>
                                                     </div>
                                                     <div class="form-text small d-flex justify-content-between">
-                                                        <span class="char-count">0/80</span>
+                                                        <span class="char-count">{{ result.get('final_remark', '')|length }}/80</span>
                                                         <span class="mode-indicator">自动模式</span>
                                                     </div>
+                                                    
+                                                    <!-- 显示备注组成 -->
+                                                    {% if result.get('original_remark') or result.get('generated_tags') %}
+                                                    <div class="remark-breakdown mt-1 small text-muted">
+                                                        {% if result.get('original_remark') %}
+                                                        <div><i class="fas fa-tag me-1"></i>原始: {{ result.get('original_remark') }}</div>
+                                                        {% endif %}
+                                                        {% if result.get('generated_tags') %}
+                                                        <div><i class="fas fa-robot me-1"></i>生成: {{ result.get('generated_tags') }}</div>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% endif %}
                                                     
                                                     <!-- 已选择的数据指标 -->
                                                     <div class="selected-data-indicators mt-1" data-address="{{ result.address }}">
@@ -537,6 +552,112 @@
 }
 
 /* 其他现有样式保持不变... */
+
+/* 备注分解显示 */
+.remark-breakdown {
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.03);
+    border-radius: 4px;
+    border-left: 3px solid #dee2e6;
+}
+
+.remark-breakdown div {
+    margin: 1px 0;
+    font-size: 10px;
+    line-height: 1.2;
+}
+
+.remark-breakdown .fa-tag {
+    color: #6c757d;
+}
+
+.remark-breakdown .fa-robot {
+    color: #007bff;
+}
+
+/* 数据指标标签 */
+.data-indicator-tag {
+    display: inline-block;
+    background: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    margin: 1px 2px;
+    cursor: pointer;
+    position: relative;
+}
+
+.data-indicator-tag:hover {
+    background: rgba(13, 110, 253, 0.2);
+}
+
+.remove-indicator {
+    margin-left: 3px;
+    font-size: 8px;
+    opacity: 0.7;
+}
+
+.remove-indicator:hover {
+    opacity: 1;
+}
+
+/* 字符计数颜色 */
+.char-count.warning {
+    color: #ff8c00;
+}
+
+.char-count.danger {
+    color: #dc3545;
+}
+
+/* 数据芯片样式 */
+.data-chip {
+    display: inline-block;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.data-chip:hover {
+    background: #e9ecef;
+    transform: translateY(-1px);
+}
+
+.data-chip.positive {
+    background: rgba(25, 135, 84, 0.1);
+    border-color: rgba(25, 135, 84, 0.3);
+    color: #198754;
+}
+
+.data-chip.negative {
+    background: rgba(220, 53, 69, 0.1);
+    border-color: rgba(220, 53, 69, 0.3);
+    color: #dc3545;
+}
+
+.data-chip.selected {
+    background: rgba(13, 110, 253, 0.1);
+    border-color: rgba(13, 110, 253, 0.5);
+    color: #0d6efd;
+}
+
+/* 多维度数据布局 */
+.multi-data-container .data-group {
+    margin-bottom: 6px;
+}
+
+.multi-data-container .data-label {
+    margin-bottom: 2px;
+}
+
+.multi-data-container .data-values {
+    flex-wrap: wrap;
+}
 </style>
 
 <script>

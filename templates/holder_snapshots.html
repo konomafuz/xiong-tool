@@ -1,0 +1,490 @@
+{% extends "base.html" %}
+
+{% block title %}持仓变化分析{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-chart-area"></i> 持仓变化分析 - 庄家特征识别
+                    </h4>
+                    <p class="text-muted mb-0">基于定时采集数据，分析早期入局且长期持仓的地址，识别疑似庄家特征</p>
+                </div>
+                
+                <div class="card-body">
+                    {% if not tasks %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        暂无采集任务，请先到 <a href="{{ url_for('holder_collection') }}">任务管理</a> 创建任务
+                    </div>
+                    {% else %}
+                    
+                    <!-- 任务选择和分析配置 -->
+                    <form method="POST" class="mb-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="task_id" class="form-label">选择采集任务 *</label>
+                                    <select class="form-select" id="task_id" name="task_id" required onchange="updateTaskInfo()">
+                                        <option value="">请选择任务</option>
+                                        {% for task in tasks %}
+                                        <option value="{{ task.task_id }}" 
+                                                data-token-symbol="{{ task.token_symbol or 'Unknown' }}"
+                                                data-token-address="{{ task.token_address or '' }}"
+                                                data-chain="{{ task.chain or '' }}"
+                                                data-collections="{{ task.total_collections }}"
+                                                {% if task_id == task.task_id %}selected{% endif %}>
+                                            {{ task.task_id }} - {{ task.token_symbol or 'Unknown' }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <!-- 任务详情显示 -->
+                                <div id="taskInfo" class="mb-3" style="display: none;">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-3">
+                                            <h6 class="card-title mb-2">
+                                                <i class="fas fa-info-circle"></i> 任务信息
+                                            </h6>
+                                            <div class="row text-sm">
+                                                <div class="col-12">
+                                                    <strong>代币:</strong> <span id="tokenSymbol">-</span><br>
+                                                    <strong>合约地址:</strong> 
+                                                    <code id="tokenAddress" class="small">-</code><br>
+                                                    <strong>链:</strong> <span id="chainInfo">-</span><br>
+                                                    <strong>已采集次数:</strong> <span id="collectionsCount">-</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="top_n" class="form-label">分析前N名</label>
+                                            <select class="form-select" id="top_n" name="top_n">
+                                                <option value="50" {% if top_n == 50 %}selected{% endif %}>前50名</option>
+                                                <option value="100" {% if top_n == 100 %}selected{% endif %}>前100名</option>
+                                                <option value="200" {% if top_n == 200 %}selected{% endif %}>前200名</option>
+                                                <option value="500" {% if top_n == 500 %}selected{% endif %}>前500名</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="min_snapshots" class="form-label">最少快照数</label>
+                                            <select class="form-select" id="min_snapshots" name="min_snapshots">
+                                                <option value="2" {% if min_snapshots == 2 %}selected{% endif %}>2个</option>
+                                                <option value="3" {% if min_snapshots == 3 %}selected{% endif %}>3个</option>
+                                                <option value="5" {% if min_snapshots == 5 %}selected{% endif %}>5个</option>
+                                                <option value="10" {% if min_snapshots == 10 %}selected{% endif %}>10个</option>
+                                            </select>
+                                            <div class="form-text">地址需在几个快照中出现才算持续持仓</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">&nbsp;</label>
+                                    <button type="submit" class="btn btn-primary d-block w-100">
+                                        <i class="fas fa-search"></i> 开始分析持仓变化
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    {% endif %}
+                    
+                    {% if analysis_result %}
+                    <!-- 分析结果 -->
+                    <div class="mt-4">
+                        <h5><i class="fas fa-chart-bar"></i> 分析结果</h5>
+                        
+                        <!-- 概览统计 -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="card bg-danger text-white">
+                                    <div class="card-body text-center">
+                                        <h4>{{ analysis_result.summary.suspected_whales_count }}</h4>
+                                        <p class="mb-0">疑似庄家地址</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body text-center">
+                                        <h4>{{ analysis_result.summary.active_traders_count }}</h4>
+                                        <p class="mb-0">搬砖地址</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body text-center">
+                                        <h4>{{ analysis_result.summary.new_big_holders_count }}</h4>
+                                        <p class="mb-0">新入场大户</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-secondary text-white">
+                                    <div class="card-body text-center">
+                                        <h4>{{ analysis_result.summary.disappeared_count }}</h4>
+                                        <p class="mb-0">已退出地址</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 分析详情tabs -->
+                        <ul class="nav nav-tabs" id="analysisTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="whales-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#whales" type="button" role="tab">
+                                    <i class="fas fa-crown"></i> 疑似庄家 ({{ analysis_result.persistent_whales|length }})
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="traders-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#traders" type="button" role="tab">
+                                    <i class="fas fa-exchange-alt"></i> 搬砖地址 ({{ analysis_result.frequent_traders|length }})
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="new-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#new" type="button" role="tab">
+                                    <i class="fas fa-user-plus"></i> 新入场 ({{ analysis_result.new_entrants|length }})
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="disappeared-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#disappeared" type="button" role="tab">
+                                    <i class="fas fa-user-minus"></i> 已退出 ({{ analysis_result.disappeared_holders|length }})
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="analysisTabContent">
+                            <!-- 疑似庄家 -->
+                            <div class="tab-pane fade show active" id="whales" role="tabpanel">
+                                <div class="mt-3">
+                                    <p class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        早期入局且长期持仓的地址，排名稳定，疑似庄家或项目方地址
+                                    </p>
+                                    
+                                    {% if analysis_result.persistent_whales %}
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>地址</th>
+                                                    <th>类型</th>
+                                                    <th>可信度</th>
+                                                    <th>稳定性评分</th>
+                                                    <th>平均排名</th>
+                                                    <th>排名波动</th>
+                                                    <th>当前持仓%</th>
+                                                    <th>持仓变化</th>
+                                                    <th>快照数</th>
+                                                    <th>首次发现</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for whale in analysis_result.persistent_whales %}
+                                                <tr>
+                                                    <td>
+                                                        <code class="small">{{ whale.address[:10] }}...{{ whale.address[-6:] }}</code>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-danger">{{ whale.whale_type }}</span>
+                                                    </td>
+                                                    <td>
+                                                        {% if whale.confidence == 'high' %}
+                                                        <span class="badge bg-success">高</span>
+                                                        {% else %}
+                                                        <span class="badge bg-warning">中</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>{{ whale.stability_score }}</td>
+                                                    <td>#{{ whale.avg_rank }}</td>
+                                                    <td>{{ whale.rank_volatility }}</td>
+                                                    <td>{{ "%.4f"|format(whale.latest_percentage) }}%</td>
+                                                    <td>
+                                                        {% if whale.percentage_change > 0 %}
+                                                        <span class="text-success">+{{ "%.4f"|format(whale.percentage_change) }}%</span>
+                                                        {% else %}
+                                                        <span class="text-danger">{{ "%.4f"|format(whale.percentage_change) }}%</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>{{ whale.snapshot_count }}</td>
+                                                    <td>{{ whale.first_seen[:10] }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {% else %}
+                                    <p class="text-muted">暂未发现疑似庄家地址</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- 搬砖地址 -->
+                            <div class="tab-pane fade" id="traders" role="tabpanel">
+                                <div class="mt-3">
+                                    <p class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        排名波动较大的地址，可能在频繁买卖或转移代币
+                                    </p>
+                                    
+                                    {% if analysis_result.frequent_traders %}
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>地址</th>
+                                                    <th>类型</th>
+                                                    <th>排名波动</th>
+                                                    <th>平均排名</th>
+                                                    <th>当前持仓%</th>
+                                                    <th>快照数</th>
+                                                    <th>活跃时间</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for trader in analysis_result.frequent_traders %}
+                                                <tr>
+                                                    <td>
+                                                        <code class="small">{{ trader.address[:10] }}...{{ trader.address[-6:] }}</code>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-warning">{{ trader.whale_type }}</span>
+                                                    </td>
+                                                    <td>{{ trader.rank_volatility }}</td>
+                                                    <td>#{{ trader.avg_rank }}</td>
+                                                    <td>{{ "%.4f"|format(trader.latest_percentage) }}%</td>
+                                                    <td>{{ trader.snapshot_count }}</td>
+                                                    <td>{{ trader.first_seen[:10] }} ~ {{ trader.last_seen[:10] }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {% else %}
+                                    <p class="text-muted">暂未发现明显的搬砖地址</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- 新入场大户 -->
+                            <div class="tab-pane fade" id="new" role="tabpanel">
+                                <div class="mt-3">
+                                    <p class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        最近才出现在榜单中的大额持仓地址
+                                    </p>
+                                    
+                                    {% if analysis_result.new_entrants %}
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>地址</th>
+                                                    <th>类型</th>
+                                                    <th>当前排名</th>
+                                                    <th>当前持仓%</th>
+                                                    <th>首次发现</th>
+                                                    <th>快照数</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for entrant in analysis_result.new_entrants %}
+                                                <tr>
+                                                    <td>
+                                                        <code class="small">{{ entrant.address[:10] }}...{{ entrant.address[-6:] }}</code>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-success">{{ entrant.whale_type }}</span>
+                                                    </td>
+                                                    <td>#{{ entrant.latest_rank }}</td>
+                                                    <td>{{ "%.4f"|format(entrant.latest_percentage) }}%</td>
+                                                    <td>{{ entrant.first_seen[:10] }}</td>
+                                                    <td>{{ entrant.snapshot_count }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {% else %}
+                                    <p class="text-muted">暂未发现新入场大户</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- 已退出地址 -->
+                            <div class="tab-pane fade" id="disappeared" role="tabpanel">
+                                <div class="mt-3">
+                                    <p class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        之前在榜单中但最近消失的地址
+                                    </p>
+                                    
+                                    {% if analysis_result.disappeared_holders %}
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>地址</th>
+                                                    <th>最后排名</th>
+                                                    <th>最后持仓%</th>
+                                                    <th>最后发现</th>
+                                                    <th>快照数</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for holder in analysis_result.disappeared_holders %}
+                                                <tr>
+                                                    <td>
+                                                        <code class="small">{{ holder.address[:10] }}...{{ holder.address[-6:] }}</code>
+                                                    </td>
+                                                    <td>#{{ holder.last_rank }}</td>
+                                                    <td>{{ "%.4f"|format(holder.last_percentage) }}%</td>
+                                                    <td>{{ holder.last_seen[:10] }}</td>
+                                                    <td>{{ holder.snapshot_count }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {% else %}
+                                    <p class="text-muted">暂无退出地址记录</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 分析元信息 -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6>分析信息</h6>
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <strong>分析任务:</strong> {{ analysis_result.task_id }}
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>快照数量:</strong> {{ analysis_result.total_snapshots }}个
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>时间范围:</strong> {{ analysis_result.time_range.start[:10] }} ~ {{ analysis_result.time_range.end[:10] }}
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>分析地址数:</strong> {{ analysis_result.total_addresses_analyzed }}个
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 使用说明 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-lightbulb"></i> 分析说明
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>庄家特征识别:</h6>
+                        <ul class="small">
+                            <li><strong>疑似庄家:</strong> 早期就在前20名，排名变化≤30，持仓比例未大幅减少</li>
+                            <li><strong>搬砖地址:</strong> 排名波动超过50，频繁买卖或转移代币</li>
+                            <li><strong>新入场大户:</strong> 最近才出现但排名靠前的地址</li>
+                            <li><strong>已退出地址:</strong> 之前在榜但最近消失的地址</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>参数说明:</h6>
+                        <ul class="small">
+                            <li><strong>稳定性评分:</strong> 综合快照出现率和排名稳定性</li>
+                            <li><strong>排名波动:</strong> 最高排名与最低排名的差值</li>
+                            <li><strong>持仓变化:</strong> 最新与最早持仓比例的差值</li>
+                            <li><strong>最少快照数:</strong> 地址需在多少个快照中出现才分析</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateTaskInfo() {
+    const taskSelect = document.getElementById('task_id');
+    const taskInfo = document.getElementById('taskInfo');
+    const selectedOption = taskSelect.options[taskSelect.selectedIndex];
+    
+    if (selectedOption.value === '') {
+        taskInfo.style.display = 'none';
+        return;
+    }
+    
+    // 获取任务数据
+    const tokenSymbol = selectedOption.getAttribute('data-token-symbol');
+    const tokenAddress = selectedOption.getAttribute('data-token-address');
+    const chain = selectedOption.getAttribute('data-chain');
+    const collections = selectedOption.getAttribute('data-collections');
+    
+    // 更新显示
+    document.getElementById('tokenSymbol').textContent = tokenSymbol || '-';
+    document.getElementById('tokenAddress').textContent = tokenAddress ? 
+        tokenAddress.substring(0, 10) + '...' + tokenAddress.substring(tokenAddress.length - 6) : '-';
+    document.getElementById('tokenAddress').title = tokenAddress || '';
+    
+    // 链信息映射
+    const chainNames = {
+        '1': 'Ethereum',
+        '56': 'BSC',
+        '137': 'Polygon', 
+        '501': 'Solana',
+        '43114': 'Avalanche'
+    };
+    document.getElementById('chainInfo').textContent = chainNames[chain] ? 
+        `${chainNames[chain]} (${chain})` : (chain || '-');
+    
+    document.getElementById('collectionsCount').textContent = collections || '0';
+    
+    // 显示任务信息
+    taskInfo.style.display = 'block';
+}
+
+// 页面加载时如果有选中的任务，显示信息
+document.addEventListener('DOMContentLoaded', function() {
+    updateTaskInfo();
+});
+</script>
+
+{% endblock %}

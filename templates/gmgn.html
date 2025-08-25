@@ -43,7 +43,7 @@
                                 <label class="form-label fw-bold">Top Holders 数量</label>
                                 <input type="number" name="holderCount" class="form-control" 
                                        min="1" max="200" 
-                                       value="{{ request.form.get('holderCount', '50') }}" 
+                                       value="{{ request.form.get('holderCount', '100') }}" 
                                        placeholder="最多200个">
                                 <small class="text-muted">获取前N个持仓地址</small>
                             </div>
@@ -51,7 +51,7 @@
                                 <label class="form-label fw-bold">Top Traders 数量</label>
                                 <input type="number" name="traderCount" class="form-control" 
                                        min="1" max="200" 
-                                       value="{{ request.form.get('traderCount', '50') }}" 
+                                       value="{{ request.form.get('traderCount', '100') }}" 
                                        placeholder="最多200个">
                                 <small class="text-muted">获取前N个交易者</small>
                             </div>
@@ -87,7 +87,64 @@
                             </div>
                         </div>
 
-                        <div class="text-center">
+                        <!-- 已有备注地址导入 -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card bg-light">
+                                    <div class="card-header bg-info text-white">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-file-import me-2"></i>已有备注地址导入 (可选)
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">已有备注地址</label>
+                                            <textarea name="existingRemarks" class="form-control" rows="8" 
+                                                      placeholder="支持两种格式：&#10;&#10;1. 地址:备注格式（每行一个）&#10;0x1234...abcd:KOL钱包&#10;0x5678...efgh:庄家地址&#10;&#10;2. JSON格式&#10;[{&quot;address&quot;: &quot;7ukECzatL5uW4pEN8yd4ECoibYW3PxMxvh1FQojSm6yC&quot;, &quot;name&quot;: &quot;💎周40%-周盈利0.2M-总0.7M&quot;}, {&quot;address&quot;: &quot;3WLcdAXodTV3kGHVqSmZxsFXga1gD1h3AaLmHEUXuHN2&quot;, &quot;name&quot;: &quot;惠子4&quot;}]">{{ request.form.get('existingRemarks', '') }}</textarea>
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                支持两种格式：1) 地址:备注（每行一个）2) JSON数组格式。系统会自动识别格式并与新生成的备注进行对比和合并。
+                                            </small>
+                                        </div>
+                                        
+                                        <!-- 快速示例按钮 -->
+                                        <div class="mb-3">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                                    onclick="fillExampleRemarks()">
+                                                <i class="fas fa-clipboard me-1"></i>填入JSON格式示例
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm ms-2" 
+                                                    onclick="fillTextFormatExample()">
+                                                <i class="fas fa-list me-1"></i>填入文本格式示例
+                                            </button>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="mergeStrategy" 
+                                                           value="keep_existing" id="keepExisting" checked>
+                                                    <label class="form-check-label" for="keepExisting">
+                                                        <strong>保留已有备注</strong> - 有冲突时优先使用已有备注
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="mergeStrategy" 
+                                                           value="keep_new" id="keepNew">
+                                                    <label class="form-check-label" for="keepNew">
+                                                        <strong>使用新备注</strong> - 有冲突时优先使用新生成的备注
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center mt-4">
                             <button type="submit" class="btn btn-lg btn-gradient px-5">
                                 <i class="fas fa-play me-2"></i>开始分析
                             </button>
@@ -111,6 +168,70 @@
                     <div id="progressStatus" class="text-muted mt-2">准备开始...</div>
                 </div>
             </div>
+
+            <!-- 地址备注冲突处理区 -->
+            {% if session.get('address_conflicts') %}
+            <div class="card shadow-sm mb-4 border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>地址备注冲突处理
+                    </h5>
+                    <p class="mb-0 small">发现 {{ session['address_conflicts']|length }} 个地址的备注存在冲突，请手动选择：</p>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('resolve_conflicts') }}">
+                        {% for conflict in session['address_conflicts'] %}
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-wallet me-2"></i>
+                                    {{ conflict.address }}
+                                    {% if conflict.is_conspiracy %}
+                                    <span class="badge bg-danger">阴谋钱包</span>
+                                    {% endif %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" 
+                                                   name="conflict_{{ loop.index0 }}" 
+                                                   value="existing" id="existing_{{ loop.index0 }}" checked>
+                                            <label class="form-check-label" for="existing_{{ loop.index0 }}">
+                                                <strong>使用已有备注：</strong><br>
+                                                <span class="badge bg-info">{{ conflict.existing_remark }}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" 
+                                                   name="conflict_{{ loop.index0 }}" 
+                                                   value="new" id="new_{{ loop.index0 }}">
+                                            <label class="form-check-label" for="new_{{ loop.index0 }}">
+                                                <strong>使用新备注：</strong><br>
+                                                <span class="badge bg-success">{{ conflict.new_remark }}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-check me-2"></i>确认选择
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="ignoreConflicts()">
+                                <i class="fas fa-times me-2"></i>忽略冲突
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- 结果展示区 -->
             {% if normal_remarks or conspiracy_remarks %}
@@ -609,6 +730,40 @@ function simulateProgress() {
             progressStatus.textContent = '分析完成！';
         }
     }, 500);
+}
+
+// 忽略冲突
+function ignoreConflicts() {
+    if (confirm('确定要忽略所有冲突吗？这将保持当前的备注结果。')) {
+        // 创建一个表单来发送POST请求
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/ignore_conflicts';
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// 填入JSON格式示例
+function fillExampleRemarks() {
+    const exampleJson = `[
+  {
+    "address": "7ukECzatL5uW4pEN8yd4ECoibYW3PxMxvh1FQojSm6yC",
+    "name": "💎周40%-周盈利0.2M-总0.7M"
+  },
+  {
+    "address": "3WLcdAXodTV3kGHVqSmZxsFXga1gD1h3AaLmHEUXuHN2",
+    "name": "惠子4"
+  }
+]`;
+    document.querySelector('textarea[name="existingRemarks"]').value = exampleJson;
+}
+
+// 填入文本格式示例
+function fillTextFormatExample() {
+    const exampleText = `7ukECzatL5uW4pEN8yd4ECoibYW3PxMxvh1FQojSm6yC:💎周40%-周盈利0.2M-总0.7M
+3WLcdAXodTV3kGHVqSmZxsFXga1gD1h3AaLmHEUXuHN2:惠子4`;
+    document.querySelector('textarea[name="existingRemarks"]').value = exampleText;
 }
 
 // 页面加载完成后检查复制功能可用性

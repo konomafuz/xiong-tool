@@ -405,12 +405,15 @@ def get_connection_pool_status():
 # 🔧 新增：长任务装饰器
 def with_long_running_session(func):
     """长任务装饰器，使用scoped_session避免连接抢占"""
+    from functools import wraps
+    
+    @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except Exception as e:
             # 如果是数据库连接相关错误，清理连接池
-            if "connection" in str(e).lower():
+            if e and "connection" in str(e).lower():
                 from config.database import cleanup_db_connections
                 cleanup_db_connections()
             raise e

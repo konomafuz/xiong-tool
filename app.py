@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, session, send_file, redirect,
 from modules import top_earners, smart_accounts, gmgn
 from utils import fetch_data, export_to_excel
 import time
+import datetime
 import pandas as pd
 import json
 # 新增的模块
@@ -27,6 +28,18 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key_here')  # 从环境变量获取
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SESSION_TYPE'] = 'filesystem'  # 使用文件系统存储会话
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(hours=24)  # 会话有效期24小时
+
+# 尝试使用Flask-Session扩展，如果已安装
+try:
+    from flask_session import Session
+    Session(app)
+    logger.info("🔐 已启用Flask-Session扩展，会话将更加稳定")
+except ImportError:
+    logger.warning("⚠️ 未安装Flask-Session扩展，使用默认会话存储")
+    pass
 
 # 数据库初始化
 try:
@@ -425,6 +438,122 @@ def download_smart_accounts():
         flash(f"导出失败: {str(e)}", "danger")
         return redirect(url_for('smart_accounts'))
 
+def merge_existing_remarks(normal_remarks, conspiracy_remarks, existing_remarks_text, merge_strategy):
+    """
+    合并已有备注地址和新生成的备注
+    
+    Args:
+        normal_remarks: 新生成的普通地址备注列表
+        conspiracy_remarks: 新生成的阴谋钱包备注列表
+        existing_remarks_text: 已有备注地址文本，支持多种格式：
+                              1. "地址:备注" 每行一个
+                              2. JSON格式: [{"address": "xxx", "name": "xxx"}]
+        merge_strategy: 合并策略，"keep_existing" 或 "keep_new"
+    
+    Returns:
+        tuple: (合并后的normal_remarks, 合并后的conspiracy_remarks, 冲突列表)
+    """
+    conflicts = []
+    existing_remarks = {}
+    
+    # 解析已有备注地址 - 支持多种格式
+    existing_remarks_text = existing_remarks_text.strip()
+    
+    # 检查是否为JSON格式
+    if existing_remarks_text.startswith('[') and existing_remarks_text.endswith(']'):
+        try:
+            # JSON格式解析
+            import json
+            json_data = json.loads(existing_remarks_text)
+            for item in json_data:
+                if isinstance(item, dict) and 'address' in item:
+                    address = item['address'].strip().lower()
+                    # 支持多种备注字段名
+                    remark = item.get('name') or item.get('remark') or item.get('label') or ''
+                    if address and remark:
+                        existing_remarks[address] = remark
+        except json.JSONDecodeError:
+            # JSON解析失败，按普通文本处理
+            pass
+    
+    # 如果不是JSON或JSON解析失败，按行解析
+    if not existing_remarks:
+        for line in existing_remarks_text.split('\n'):
+            line = line.strip()
+            if not line or ':' not in line:
+                continue
+            
+            try:
+                address, remark = line.split(':', 1)
+                address = address.strip().lower()  # 统一转换为小写
+                remark = remark.strip()
+                if address and remark:
+                    existing_remarks[address] = remark
+            except ValueError:
+                continue
+    
+    # 创建新备注的地址映射
+    new_normal = {item['address'].lower(): item for item in normal_remarks}
+    new_conspiracy = {item['address'].lower(): item for item in conspiracy_remarks}
+    
+    # 合并逻辑
+    merged_normal = []
+    merged_conspiracy = []
+    processed_addresses = set()
+    
+    # 处理已有备注
+    for address, existing_remark in existing_remarks.items():
+        processed_addresses.add(address)
+        
+        # 检查是否在新备注中有冲突
+        conflict_item = None
+        new_remark = None
+        is_conspiracy = False
+        
+        if address in new_normal:
+            conflict_item = new_normal[address]
+            new_remark = conflict_item['remark']
+        elif address in new_conspiracy:
+            conflict_item = new_conspiracy[address]
+            new_remark = conflict_item['remark']
+            is_conspiracy = True
+        
+        if conflict_item and new_remark != existing_remark:
+            # 有冲突，记录冲突信息让用户手动选择
+            conflicts.append({
+                'address': conflict_item['address'],  # 保持原始大小写
+                'existing_remark': existing_remark,
+                'new_remark': new_remark,
+                'is_conspiracy': is_conspiracy
+            })
+            
+            # 冲突的地址暂时不添加到结果中，等用户选择后再处理
+            # 这样确保用户可以手动选择每个冲突地址的备注
+                
+        elif conflict_item:
+            # 没有冲突，备注相同，直接使用
+            if is_conspiracy:
+                merged_conspiracy.append(conflict_item)
+            else:
+                merged_normal.append(conflict_item)
+        else:
+            # 已有备注但新备注中没有这个地址，直接添加到普通备注
+            merged_normal.append({
+                'address': address.upper(),  # 恢复原始格式
+                'remark': existing_remark
+            })
+    
+    # 添加新备注中没有冲突的地址
+    for address, item in new_normal.items():
+        if address not in processed_addresses:
+            merged_normal.append(item)
+    
+    for address, item in new_conspiracy.items():
+        if address not in processed_addresses:
+            merged_conspiracy.append(item)
+    
+    return merged_normal, merged_conspiracy, conflicts
+
 @app.route("/download_gmgn_remarks", methods=["POST"])
 def download_gmgn_remarks():
     """下载GMGN备注数据"""
@@ -507,6 +636,10 @@ def gmgn_tool():
         conspiracy_check = request.form.get("conspiracyCheck") == "on"
         conspiracy_days = request.form.get("conspiracyDays", "10")
         
+        # 已有备注地址和合并策略
+        existing_remarks_text = request.form.get("existingRemarks", "").strip()
+        merge_strategy = request.form.get("mergeStrategy", "keep_existing")
+        
         try:
             holder_count = max(1, min(200, int(holder_count)))
         except ValueError:
@@ -531,18 +664,30 @@ def gmgn_tool():
             print(f"📊 Holders数量: {holder_count}, Traders数量: {trader_count}")
             print(f"🔍 阴谋钱包检测: {'启用' if conspiracy_check else '关闭'}")
             
-            # 使用新的生成函数
+            # 使用新的生成函数，支持多链
             result = gmgn.generate_address_remarks(
                 ca_address, 
                 ca_name, 
                 holder_count, 
                 trader_count,
                 conspiracy_check,
-                conspiracy_days
+                conspiracy_days,
+                chain_id  # 🔧 传递链ID参数
             )
             
             normal_remarks = result.get("normal_remarks", [])
             conspiracy_remarks = result.get("conspiracy_remarks", [])
+            
+            # 处理已有备注地址的合并
+            if existing_remarks_text:
+                normal_remarks, conspiracy_remarks, conflicts = merge_existing_remarks(
+                    normal_remarks, conspiracy_remarks, existing_remarks_text, merge_strategy
+                )
+                
+                if conflicts:
+                    # 如果有冲突，将冲突信息传递给前端
+                    session['address_conflicts'] = conflicts
+                    flash(f"发现 {len(conflicts)} 个地址备注冲突，请手动选择", "warning")
             
             print(f"🎉 备注数据生成完成!")
             print(f"📊 普通地址: {len(normal_remarks)} 个")
@@ -555,6 +700,7 @@ def gmgn_tool():
                 'params': {
                     'ca_address': ca_address,
                     'ca_name': ca_name,
+                    'chain_id': chain_id,  # 🔧 保存链ID
                     'holder_count': holder_count,
                     'trader_count': trader_count,
                     'conspiracy_check': conspiracy_check,
@@ -576,6 +722,62 @@ def gmgn_tool():
     return render_template("gmgn.html", 
                          normal_remarks=normal_remarks,
                          conspiracy_remarks=conspiracy_remarks)
+
+@app.route("/resolve_conflicts", methods=["POST"])
+def resolve_conflicts():
+    """处理地址备注冲突"""
+    if 'address_conflicts' not in session or 'gmgn_results' not in session:
+        flash("没有待处理的冲突", "warning")
+        return redirect(url_for('gmgn_tool'))
+    
+    try:
+        conflicts = session['address_conflicts']
+        results = session['gmgn_results']
+        normal_remarks = results.get('normal_remarks', [])
+        conspiracy_remarks = results.get('conspiracy_remarks', [])
+        
+        # 根据用户选择处理冲突地址
+        for i, conflict in enumerate(conflicts):
+            choice = request.form.get(f"conflict_{i}")
+            if choice == "existing":
+                final_remark = conflict['existing_remark']
+            else:  # choice == "new"
+                final_remark = conflict['new_remark']
+            
+            # 创建解决后的地址项
+            resolved_item = {
+                'address': conflict['address'],
+                'remark': final_remark
+            }
+            
+            # 添加到相应列表
+            if conflict['is_conspiracy']:
+                conspiracy_remarks.append(resolved_item)
+            else:
+                normal_remarks.append(resolved_item)
+        
+        # 更新session中的结果
+        session['gmgn_results']['normal_remarks'] = normal_remarks
+        session['gmgn_results']['conspiracy_remarks'] = conspiracy_remarks
+        
+        # 清除冲突信息
+        if 'address_conflicts' in session:
+            del session['address_conflicts']
+        
+        flash("冲突已解决", "success")
+        
+    except Exception as e:
+        flash(f"处理冲突时出错: {str(e)}", "danger")
+    
+    return redirect(url_for('gmgn_tool'))
+
+@app.route("/ignore_conflicts", methods=["POST"])
+def ignore_conflicts():
+    """忽略地址备注冲突"""
+    if 'address_conflicts' in session:
+        del session['address_conflicts']
+        flash("已忽略冲突", "info")
+    return redirect(url_for('gmgn_tool'))
 
 # 新增的路由
 @app.route("/solana_analysis", methods=["GET", "POST"])
@@ -692,6 +894,193 @@ def download_solana_data(data_type):
         flash(f"下载失败: {str(e)}", "danger")
         return redirect(url_for('solana_analysis'))
 
+@app.route("/holder_snapshots", methods=["GET", "POST"])
+def holder_snapshots():
+    """基于定时采集数据的持仓快照分析"""
+    from modules.holder import list_collection_tasks, analyze_holder_patterns
+    
+    # 获取所有采集任务
+    tasks = list_collection_tasks()
+    
+    if request.method == "POST":
+        task_id = request.form.get("task_id")
+        top_n = int(request.form.get("top_n", 100))
+        min_snapshots = int(request.form.get("min_snapshots", 3))
+        
+        if not task_id:
+            flash("请选择一个采集任务", "danger")
+            return render_template("holder_snapshots.html", tasks=tasks)
+        
+        try:
+            # 分析持仓模式
+            analysis_result = analyze_holder_patterns(task_id, top_n, min_snapshots)
+            
+            return render_template(
+                "holder_snapshots.html",
+                tasks=tasks,
+                analysis_result=analysis_result,
+                task_id=task_id,
+                top_n=top_n,
+                min_snapshots=min_snapshots
+            )
+            
+        except Exception as e:
+            flash(f"分析失败: {e}", "danger")
+            return render_template("holder_snapshots.html", tasks=tasks)
+    
+    return render_template("holder_snapshots.html", tasks=tasks)
+
+def cleanup_old_snapshot_files():
+    """清理过期的快照临时文件"""
+    import tempfile
+    import os
+    import glob
+    import time
+    
+    # 获取临时目录
+    temp_dir = os.path.join(tempfile.gettempdir(), 'okx_pnl_tool')
+    
+    # 确保目录存在
+    if not os.path.exists(temp_dir):
+        return
+        
+    # 寻找所有快照文件
+    snapshot_files = glob.glob(os.path.join(temp_dir, 'snapshot_*.pkl'))
+    
+    # 检查每个文件
+    now = time.time()
+    for file_path in snapshot_files:
+        # 如果文件超过12小时未修改，则删除
+        if os.path.exists(file_path) and (now - os.path.getmtime(file_path)) > 12 * 3600:
+            try:
+                os.remove(file_path)
+                logger.info(f"已清理过期快照文件: {file_path}")
+            except Exception as e:
+                logger.error(f"清理快照文件失败: {file_path}, 错误: {str(e)}")
+
+@app.route('/download_holder_snapshots', methods=["POST"])
+def download_holder_snapshots():
+    """下载持仓快照数据"""
+    # 清理老旧文件
+    cleanup_old_snapshot_files()
+    if 'holder_snapshots' not in session:
+        flash("没有可导出的快照数据", "warning")
+        return redirect(url_for('holder_snapshots'))
+    
+    try:
+        # 获取临时文件路径与当前请求的代币地址
+        snapshot_info = session['holder_snapshots']
+        temp_file = snapshot_info.get('temp_file')
+        session_token_address = snapshot_info.get('token_address')
+        current_token_address = request.form.get('tokenAddress')  # 从表单获取当前查询的代币地址
+        
+        # 日志记录
+        if current_token_address:
+            logger.info(f"当前请求导出代币: {current_token_address}")
+            logger.info(f"Session中保存的代币: {session_token_address}")
+            
+            # 如果表单中提供了代币地址，且与session中不一致，说明用户已经查询了新的代币
+            if session_token_address != current_token_address:
+                flash(f"检测到代币地址变更，请先查询新代币的快照数据后再导出", "warning")
+                return redirect(url_for('holder_snapshots'))
+        
+        if not temp_file or not os.path.exists(temp_file):
+            flash("快照数据已过期或不存在，请重新生成", "warning")
+            return redirect(url_for('holder_snapshots'))
+        
+        # 从临时文件加载数据
+        import pickle
+        with open(temp_file, 'rb') as f:
+            try:
+                snapshot_data = pickle.load(f)
+                historical_data = snapshot_data['data']
+                token_address = snapshot_data['token_address']
+            except Exception as e:
+                flash(f"无法加载快照数据: {str(e)}", "danger")
+                return redirect(url_for('holder_snapshots'))
+        
+        export_type = request.form.get("exportType", "merged")  # merged, timeseries, all
+        
+        # 调用导出函数
+        from modules.holder import export_holder_snapshots
+                # 添加更多日志
+        logger.info(f"正在导出快照数据，类型: {export_type}, 快照数量: {len(historical_data)}")
+        logger.info(f"导出代币地址: {token_address}")
+        
+        # 对每个快照时间点记录数据量
+        for label, df in historical_data.items():
+            if isinstance(df, pd.DataFrame):
+                logger.info(f"时间点 {label}: {len(df)} 条记录")
+            else:
+                logger.info(f"时间点 {label}: 非DataFrame类型 ({type(df)})")
+        
+        # 调用导出函数
+        merged_path, timeseries_path = export_holder_snapshots(historical_data, token_address)        # 记录导出结果
+        if merged_path:
+            logger.info(f"合并CSV导出成功: {merged_path}")
+        else:
+            logger.warning("合并CSV导出失败")
+            
+        if timeseries_path:
+            logger.info(f"时序CSV导出成功: {timeseries_path}")
+        else:
+            logger.warning("时序CSV导出失败")
+        
+        if export_type == "timeseries" and timeseries_path:
+            # 返回时间序列格式
+            try:
+                return send_file(
+                    timeseries_path,
+                    as_attachment=True,
+                    download_name=os.path.basename(timeseries_path),
+                    mimetype="text/csv"
+                )
+            except Exception as e:
+                logger.error(f"文件发送失败: {str(e)}")
+                flash(f"文件下载失败: {str(e)}", "danger")
+                return redirect(url_for('holder_snapshots'))
+        elif export_type == "all":
+            # 打包两个文件
+            import zipfile
+            from io import BytesIO
+            
+            memory_file = BytesIO()
+            with zipfile.ZipFile(memory_file, 'w') as zf:
+                if merged_path:
+                    zf.write(merged_path, os.path.basename(merged_path))
+                if timeseries_path:
+                    zf.write(timeseries_path, os.path.basename(timeseries_path))
+            
+            memory_file.seek(0)
+            return send_file(
+                memory_file,
+                as_attachment=True,
+                download_name=f"holder_snapshots_{token_address[:8]}_{int(time.time())}.zip",
+                mimetype="application/zip"
+            )
+        else:
+            # 默认返回合并格式
+            if merged_path:
+                try:
+                    return send_file(
+                        merged_path,
+                        as_attachment=True,
+                        download_name=os.path.basename(merged_path),
+                        mimetype="text/csv"
+                    )
+                except Exception as e:
+                    logger.error(f"文件发送失败: {str(e)}")
+                    flash(f"文件下载失败: {str(e)}", "danger")
+                    return redirect(url_for('holder_snapshots'))
+        
+        flash("导出失败: 未生成可下载的文件", "danger")
+        logger.error("导出失败: 未生成可下载的文件")
+        return redirect(url_for('holder_snapshots'))
+        
+    except Exception as e:
+        flash(f"导出失败: {str(e)}", "danger")
+        return redirect(url_for('holder_snapshots'))
+
 @app.route("/whale_flow")
 def whale_flow():
     """庄家资金流动 - 待开发"""
@@ -719,45 +1108,57 @@ def address_monitor():
                          ])
 
 @app.route("/wallet_analyzer", methods=["GET", "POST"])
-@with_long_running_session  # 🔧 使用长任务装饰器避免连接抢占
 def wallet_analyzer():
-    """钱包智能分析器 - Render优化版"""
+    """钱包智能分析器 - 支持批量地址和备注处理"""
     if request.method == "POST":
         wallet_addresses_text = request.form.get("walletAddresses", "").strip()
         chain_id = request.form.get("chainId", "501")
-        preserve_remarks = request.form.get("preserveRemarks", "append")  # 新增：备注处理方式
+        preserve_remarks = request.form.get("preserveRemarks", "append")  # append, prepend, replace, ignore
         
         if not wallet_addresses_text:
             flash("请输入钱包地址", "danger")
             return render_template("wallet_analyzer.html")
         
-        # 解析地址列表（支持带备注的格式）
+        # 🔧 解析地址列表（支持多种格式）
         addresses_with_remarks = []
-        for line in wallet_addresses_text.split('\n'):
-            line = line.strip()
-            if line and len(line) > 20:
-                # 解析格式：地址:备注 或 纯地址
-                if ':' in line:
-                    parts = line.split(':', 1)
-                    address = parts[0].strip()
-                    original_remark = parts[1].strip() if len(parts) > 1 else ""
-                else:
-                    address = line
-                    original_remark = ""
+        
+        # 支持逗号分隔或换行分隔
+        if ',' in wallet_addresses_text and '\n' not in wallet_addresses_text:
+            # 逗号分隔格式：0x...:备注,0x...:备注
+            entries = wallet_addresses_text.split(',')
+        else:
+            # 换行分隔格式
+            entries = wallet_addresses_text.split('\n')
+        
+        for entry in entries:
+            entry = entry.strip()
+            if not entry or len(entry) < 20:
+                continue
                 
-                if len(address) > 20:  # 基本验证
-                    addresses_with_remarks.append({
-                        'address': address,
-                        'original_remark': original_remark
-                    })
+            # 解析格式：地址:备注 或 纯地址
+            if ':' in entry:
+                parts = entry.split(':', 1)
+                address = parts[0].strip()
+                original_remark = parts[1].strip() if len(parts) > 1 else ""
+            else:
+                address = entry.strip()
+                original_remark = ""
+            
+            # 基本地址验证（ETH和Solana地址长度检查）
+            if len(address) >= 32:  # 支持ETH(42)和Solana(32-44)地址
+                addresses_with_remarks.append({
+                    'address': address,
+                    'original_remark': original_remark
+                })
         
         if not addresses_with_remarks:
             flash("未找到有效的钱包地址", "danger")
             return render_template("wallet_analyzer.html")
         
-        if len(addresses_with_remarks) > 10:
-            flash("最多支持10个地址同时分析", "warning")
-            addresses_with_remarks = addresses_with_remarks[:10]
+        # 🔧 限制最多100个地址
+        if len(addresses_with_remarks) > 100:
+            flash(f"最多支持100个地址同时分析，已截取前100个", "warning")
+            addresses_with_remarks = addresses_with_remarks[:100]
         
         try:
             # 使用标签引擎
@@ -768,19 +1169,47 @@ def wallet_analyzer():
             print(f"🔍 开始批量分析 {len(addresses)} 个钱包...")
             results = engine.batch_analyze(addresses, chain_id)
             
-            # 将原始备注添加到结果中
+            # 🔧 处理原始备注和新生成的标签
             for i, result in enumerate(results):
                 if i < len(addresses_with_remarks):
-                    result['original_remark'] = addresses_with_remarks[i]['original_remark']
+                    original_remark = addresses_with_remarks[i]['original_remark']
+                    generated_tags = result.get('tags', '')
+                    
+                    # 根据用户选择处理备注
+                    if preserve_remarks == "replace":
+                        # 覆盖：只使用生成的标签
+                        final_remark = generated_tags
+                    elif preserve_remarks == "prepend":
+                        # 前面：原始备注 + 生成的标签
+                        if original_remark and generated_tags:
+                            final_remark = f"{original_remark} | {generated_tags}"
+                        else:
+                            final_remark = original_remark or generated_tags
+                    elif preserve_remarks == "ignore":
+                        # 忽略：只保留原始备注
+                        final_remark = original_remark
+                    else:  # append (默认)
+                        # 后面：生成的标签 + 原始备注
+                        if generated_tags and original_remark:
+                            final_remark = f"{generated_tags} | {original_remark}"
+                        else:
+                            final_remark = generated_tags or original_remark
+                    
+                    result['original_remark'] = original_remark
+                    result['final_remark'] = final_remark
+                    result['generated_tags'] = generated_tags
                 else:
                     result['original_remark'] = ""
+                    result['final_remark'] = result.get('tags', '')
+                    result['generated_tags'] = result.get('tags', '')
             
             # 保存结果到session
             session['wallet_analyzer_results'] = results
             session['wallet_analyzer_params'] = {
                 'addresses': addresses,
                 'chain_id': chain_id,
-                'preserve_remarks': preserve_remarks
+                'preserve_remarks': preserve_remarks,
+                'total_count': len(addresses)
             }
             
             flash(f"分析完成！成功分析了 {len(results)} 个钱包", "success")
@@ -797,7 +1226,7 @@ def wallet_analyzer():
             print(f"📝 异常详情: {traceback.format_exc()}")
             
             # 🔧 如果是数据库连接问题，清理连接池
-            if "connection" in str(e).lower():
+            if e and "connection" in str(e).lower():
                 cleanup_db_connections()
                 
             flash(f"分析失败: {str(e)}", "danger")
@@ -989,6 +1418,137 @@ def db_test():
             'message': f'数据库测试失败: {str(e)}'
         }), 500
 
+@app.route("/fund_flow_analysis", methods=["GET", "POST"])
+def fund_flow_analysis():
+    """资金流分析 - 集成来源分析、聚类和可视化"""
+    if request.method == "POST":
+        try:
+            # 处理上传的CSV文件
+            uploaded_file = request.files.get('tx_file')
+            if not uploaded_file or uploaded_file.filename == '':
+                flash("请上传交易数据CSV文件", "warning")
+                return render_template("fund_flow_analysis.html")
+            
+            # 读取CSV数据
+            df = pd.read_csv(uploaded_file)
+            
+            # 验证必需字段
+            required_fields = ['from_address', 'to_address', 'value']
+            missing_fields = [field for field in required_fields if field not in df.columns]
+            if missing_fields:
+                flash(f"CSV文件缺少必需字段: {', '.join(missing_fields)}", "danger")
+                return render_template("fund_flow_analysis.html")
+            
+            # 获取地址标注
+            known_sources_text = request.form.get("knownSources", "").strip()
+            chart_style = request.form.get("chart_style", "refined")  # 获取图表样式选择
+            known_sources = {}
+            if known_sources_text:
+                for line in known_sources_text.split('\n'):
+                    if ',' in line:
+                        addr, label = line.split(',', 1)
+                        known_sources[addr.strip()] = label.strip()
+            
+            # 资金来源分析
+            from modules.source_analysis import SourceAnalyzer
+            analyzer = SourceAnalyzer(df)
+            labeled_df = analyzer.label_sources(known_sources)
+            source_stats = analyzer.aggregate_sources()
+            
+            # Sankey图生成 - 根据用户选择的样式
+            sankey_html = 'static/temp_sankey.html'
+            if chart_style == "network":
+                from modules.sankey_viz import plot_network_flow
+                plot_network_flow(
+                    df, 
+                    title="资金流向网络图",
+                    output_path=sankey_html,
+                    address_labels=known_sources, 
+                    top_n=15
+                )
+            elif chart_style == "standard":
+                from modules.sankey_viz import plot_sankey_standard
+                plot_sankey_standard(
+                    df, 
+                    title="资金流向分析 (标准线条)",
+                    output_path=sankey_html,
+                    address_labels=known_sources, 
+                    top_n=15
+                )
+            else:  # refined 精细样式
+                from modules.sankey_viz import plot_sankey
+                plot_sankey(
+                    df, 
+                    title="资金流向分析 (精细线条)",
+                    output_path=sankey_html,
+                    address_labels=known_sources, 
+                    top_n=15
+                )
+            
+            # 地址聚类分析（如果有tx_hash字段）
+            cluster_results = {}
+            if 'tx_hash' in df.columns:
+                from modules.cluster_addresses import build_transfer_graph, cluster_addresses, analyze_clusters
+                from modules.cluster_addresses import co_spend_cluster_analysis
+                
+                # 转账关系聚类
+                transfer_graph = build_transfer_graph(df)
+                if transfer_graph.number_of_nodes() > 0:
+                    transfer_clusters = cluster_addresses(transfer_graph)
+                    cluster_df, cluster_stats = analyze_clusters(transfer_clusters, pd.DataFrame())
+                    cluster_results['transfer'] = {
+                        'cluster_count': len(cluster_stats),
+                        'stats': cluster_stats.to_dict('records')
+                    }
+                
+                # Co-spend分析
+                try:
+                    co_spend_df, co_spend_stats = co_spend_cluster_analysis(df, pd.DataFrame())
+                    if co_spend_stats is not None:
+                        cluster_results['co_spend'] = {
+                            'cluster_count': len(co_spend_stats),
+                            'stats': co_spend_stats.to_dict('records')
+                        }
+                except Exception as e:
+                    logger.warning(f"Co-spend分析失败: {str(e)}")
+            
+            # 保存结果到session（转换numpy类型为Python原生类型以支持JSON序列化）
+            session['fund_flow_results'] = {
+                'source_stats': source_stats.to_dict('records'),
+                'cluster_results': cluster_results,
+                'sankey_path': sankey_html,
+                'total_transactions': int(len(df)),
+                'unique_addresses': int(len(set(df['from_address']) | set(df['to_address']))),
+                'total_value': float(df['value'].sum())
+            }
+            
+            flash(f"分析完成！共处理 {len(df)} 笔交易", "success")
+            
+            return render_template("fund_flow_analysis.html", 
+                                 source_stats=source_stats.to_dict('records'),
+                                 cluster_results=cluster_results,
+                                 sankey_available=True,
+                                 total_transactions=len(df),
+                                 unique_addresses=len(set(df['from_address']) | set(df['to_address'])),
+                                 total_value=df['value'].sum())
+            
+        except Exception as e:
+            flash(f"分析失败: {str(e)}", "danger")
+            logger.error(f"资金流分析错误: {str(e)}")
+            return render_template("fund_flow_analysis.html")
+    
+    return render_template("fund_flow_analysis.html")
+
+@app.route("/view_sankey")
+def view_sankey():
+    """查看Sankey图"""
+    sankey_path = session.get('fund_flow_results', {}).get('sankey_path')
+    if sankey_path and os.path.exists(sankey_path):
+        return send_file(sankey_path)
+    else:
+        flash("Sankey图不存在，请先执行分析", "warning")
+        return redirect(url_for('fund_flow_analysis'))
+
 # 🔧 应用关闭时清理资源
 @app.teardown_appcontext
 def cleanup_db_context(error):
@@ -1021,6 +1581,206 @@ def cleanup_connections():
             'status': 'error',
             'message': f'清理失败: {str(e)}'
         }), 500
+
+
+# ===================== Holder数据采集管理 =====================
+@app.route("/holder_collection")
+def holder_collection():
+    """Holder数据采集管理界面"""
+    try:
+        from modules.holder import list_collection_tasks
+        tasks = list_collection_tasks()
+        return render_template("holder_collection.html", tasks=tasks)
+    except Exception as e:
+        flash(f"加载采集任务失败: {e}", "danger")
+        return render_template("holder_collection.html", tasks=[])
+
+@app.route("/holder_collection/add", methods=["POST"])
+def add_holder_task():
+    """添加新的采集任务"""
+    try:
+        from modules.holder import create_collection_task
+        
+        task_id = request.form.get('task_id', '').strip()
+        token_address = request.form.get('token_address', '').strip()
+        token_symbol = request.form.get('token_symbol', '').strip()
+        chain = request.form.get('chain', '').strip()
+        interval_hours = int(request.form.get('interval_hours', 24))
+        max_records = int(request.form.get('max_records', 1000))
+        description = request.form.get('description', '').strip()
+        
+        if not all([task_id, token_address, token_symbol, chain]):
+            flash("请填写所有必需字段", "warning")
+            return redirect(url_for('holder_collection'))
+        
+        success = create_collection_task(
+            task_id=task_id,
+            token_address=token_address,
+            token_symbol=token_symbol,
+            chain=chain,
+            interval_hours=interval_hours,
+            max_records=max_records,
+            description=description
+        )
+        
+        if success:
+            flash(f"成功创建采集任务: {task_id}", "success")
+        else:
+            flash(f"创建采集任务失败，任务可能已存在", "danger")
+            
+    except Exception as e:
+        flash(f"创建任务失败: {e}", "danger")
+    
+    return redirect(url_for('holder_collection'))
+
+@app.route("/holder_collection/pause/<task_id>", methods=["POST"])
+def pause_holder_task(task_id):
+    """暂停采集任务"""
+    try:
+        from modules.holder import pause_collection_task
+        success = pause_collection_task(task_id)
+        if success:
+            flash(f"任务 {task_id} 已暂停", "info")
+        else:
+            flash(f"暂停任务失败", "danger")
+    except Exception as e:
+        flash(f"操作失败: {e}", "danger")
+    
+    return redirect(url_for('holder_collection'))
+
+@app.route("/holder_collection/resume/<task_id>", methods=["POST"])
+def resume_holder_task(task_id):
+    """恢复采集任务"""
+    try:
+        from modules.holder import resume_collection_task
+        success = resume_collection_task(task_id)
+        if success:
+            flash(f"任务 {task_id} 已恢复", "success")
+        else:
+            flash(f"恢复任务失败", "danger")
+    except Exception as e:
+        flash(f"操作失败: {e}", "danger")
+    
+    return redirect(url_for('holder_collection'))
+
+@app.route("/holder_collection/remove/<task_id>", methods=["POST"])
+def remove_holder_task(task_id):
+    """删除采集任务"""
+    try:
+        from modules.holder import remove_collection_task
+        success = remove_collection_task(task_id)
+        if success:
+            flash(f"任务 {task_id} 已删除", "info")
+        else:
+            flash(f"删除任务失败", "danger")
+    except Exception as e:
+        flash(f"操作失败: {e}", "danger")
+    
+    return redirect(url_for('holder_collection'))
+
+@app.route("/holder_collection/run/<task_id>", methods=["POST"])
+def run_holder_task_now(task_id):
+    """立即执行采集任务"""
+    try:
+        from modules.holder import run_task_now
+        
+        # 在后台线程中执行，避免阻塞
+        import threading
+        def run_task():
+            run_task_now(task_id)
+        
+        thread = threading.Thread(target=run_task)
+        thread.daemon = True
+        thread.start()
+        
+        flash(f"任务 {task_id} 已开始执行", "info")
+    except Exception as e:
+        flash(f"执行任务失败: {e}", "danger")
+    
+    return redirect(url_for('holder_collection'))
+
+@app.route("/holder_collection/data")
+def view_all_holder_data():
+    """查看所有采集数据概览"""
+    try:
+        from modules.holder import get_all_tasks_summary
+        
+        tasks_summary = get_all_tasks_summary()
+        
+        return render_template("holder_data.html", 
+                             tasks_summary=tasks_summary)
+    
+    except Exception as e:
+        flash(f"获取数据失败: {e}", "danger")
+        return redirect(url_for('holder_collection'))
+
+@app.route("/holder_collection/data/<task_id>")
+def view_holder_data(task_id):
+    """查看采集数据"""
+    try:
+        from modules.holder import get_task_data
+        
+        limit = int(request.args.get('limit', 200))
+        data = get_task_data(task_id, limit)
+        
+        # 按时间分组数据
+        snapshots_by_time = {}
+        for record in data:
+            snapshot_time = record['snapshot_time']
+            if snapshot_time not in snapshots_by_time:
+                snapshots_by_time[snapshot_time] = []
+            snapshots_by_time[snapshot_time].append(record)
+        
+        return render_template("holder_data.html", 
+                             task_id=task_id, 
+                             snapshots_by_time=snapshots_by_time,
+                             total_records=len(data))
+    
+    except Exception as e:
+        flash(f"获取数据失败: {e}", "danger")
+        return redirect(url_for('holder_collection'))
+
+@app.route("/holder_collection/export/<task_id>")
+def export_holder_data(task_id):
+    """导出采集数据"""
+    try:
+        from modules.holder import export_task_data_csv
+        
+        csv_path = export_task_data_csv(task_id)
+        if csv_path and os.path.exists(csv_path):
+            return send_file(csv_path, as_attachment=True, 
+                           download_name=f"holder_data_{task_id}.csv")
+        else:
+            flash("导出失败，请稍后重试", "danger")
+            return redirect(url_for('holder_collection'))
+    
+    except Exception as e:
+        flash(f"导出失败: {e}", "danger")
+        return redirect(url_for('holder_collection'))
+
+@app.route("/holder_collection/start_service", methods=["POST"])
+def start_holder_service():
+    """启动采集服务"""
+    try:
+        from modules.holder import start_collection_service
+        start_collection_service()
+        flash("采集服务已启动", "success")
+    except Exception as e:
+        flash(f"启动服务失败: {e}", "danger")
+    
+    return redirect(url_for('holder_collection'))
+
+@app.route("/holder_collection/stop_service", methods=["POST"])
+def stop_holder_service():
+    """停止采集服务"""
+    try:
+        from modules.holder import stop_collection_service
+        stop_collection_service()
+        flash("采集服务已停止", "info")
+    except Exception as e:
+        flash(f"停止服务失败: {e}", "danger")
+    
+    return redirect(url_for('holder_collection'))
 
 
 if __name__ == "__main__":

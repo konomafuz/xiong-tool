@@ -13,13 +13,17 @@ def build_transfer_graph(events_df, min_amount=0):
     if events_df.empty:
         return G
     
-    # 筛选转账事件
-    transfers = events_df[events_df['type'] == 'TRANSFER'].copy()
+    # 筛选转账事件 - 如果没有type字段，假设所有都是转账
+    if 'type' in events_df.columns:
+        transfers = events_df[events_df['type'] == 'TRANSFER'].copy()
+    else:
+        transfers = events_df.copy()
     
     for _, transfer in transfers.iterrows():
         from_addr = transfer.get('from_address', '')
         to_addr = transfer.get('to_address', '')
-        amount = transfer.get('amount', 0)
+        # 优先使用'value'字段，如果没有则使用'amount'
+        amount = transfer.get('value', transfer.get('amount', 0))
         
         if from_addr and to_addr and amount >= min_amount:
             # 添加边，权重为转账金额
@@ -94,23 +98,32 @@ def cluster_addresses(G, algorithm='louvain'):
 def analyze_clusters(cluster_map, holders_df):
     """分析聚类结果"""
     if not cluster_map:
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
     
     cluster_df = pd.DataFrame(list(cluster_map.items()), columns=['address', 'cluster_id'])
     
     # 合并持仓数据
-    if not holders_df.empty:
+    if not holders_df.empty and 'address' in holders_df.columns:
         cluster_df = cluster_df.merge(holders_df, on='address', how='left')
     
-    # 计算聚类统计
-    cluster_stats = cluster_df.groupby('cluster_id').agg({
-        'address': 'count',
-        'balance': 'sum',
-        'percentage': 'sum'
-    }).rename(columns={'address': 'address_count'})
+    # 计算聚类统计 - 根据可用字段动态调整
+    agg_dict = {'address': 'count'}
     
+    # 只有当holders_df不为空且包含相应字段时才进行聚合
+    if not holders_df.empty:
+        if 'balance' in holders_df.columns:
+            agg_dict['balance'] = 'sum'
+        if 'percentage' in holders_df.columns:
+            agg_dict['percentage'] = 'sum'
+    
+    cluster_stats = cluster_df.groupby('cluster_id').agg(agg_dict).rename(columns={'address': 'address_count'})
     cluster_stats = cluster_stats.reset_index()
-    cluster_stats = cluster_stats.sort_values('balance', ascending=False)
+    
+    # 根据可用字段进行排序
+    if 'balance' in cluster_stats.columns:
+        cluster_stats = cluster_stats.sort_values('balance', ascending=False)
+    else:
+        cluster_stats = cluster_stats.sort_values('address_count', ascending=False)
     
     return cluster_df, cluster_stats
 
@@ -119,6 +132,13 @@ def visualize_clusters(G, cluster_map, output_path='cluster_graph.png'):
     if G.number_of_nodes() == 0:
         print("图为空，无法可视化")
         return
+    
+    # 设置matplotlib支持中文
+    import matplotlib
+    matplotlib.use('Agg')  # 使用非交互式后端
+    import matplotlib.pyplot as plt
+    plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+    plt.rcParams['axes.unicode_minus'] = False
     
     plt.figure(figsize=(15, 10))
     
@@ -194,3 +214,45 @@ def full_cluster_analysis(events_df, holders_df, output_dir='./output'):
                           os.path.join(output_dir, 'interaction_clusters.png'))
     
     return results
+def build_co_spend_graph(events_df):
+    """构建co-spend（共花费）关系图：同一交易中多个from_address共同作为输入"""
+    G = nx.Graph()
+    if events_df.empty:
+        return G
+    
+    # 检查是否有tx_hash字段
+    if 'tx_hash' not in events_df.columns:
+        print("⚠️ 缺少tx_hash字段，无法进行co-spend分析")
+        return G
+    
+    # 只考虑TRANSFER类型，如果没有type字段则假设所有都是转账
+    if 'type' in events_df.columns:
+        tx_groups = events_df[events_df['type'] == 'TRANSFER'].groupby('tx_hash')
+    else:
+        tx_groups = events_df.groupby('tx_hash')
+    
+    for tx_hash, group in tx_groups:
+        from_addrs = set(group['from_address'].dropna())
+        # 只考虑多输入的情况
+        if len(from_addrs) > 1:
+            for addr1 in from_addrs:
+                for addr2 in from_addrs:
+                    if addr1 != addr2:
+                        if G.has_edge(addr1, addr2):
+                            G[addr1][addr2]['weight'] += 1
+                        else:
+                            G.add_edge(addr1, addr2, weight=1)
+    return G
+
+def co_spend_cluster_analysis(events_df, holders_df, output_path='co_spend_clusters.png'):
+    """co-spend聚类分析及可视化"""
+    print("正在构建co-spend关系图...")
+    G = build_co_spend_graph(events_df)
+    if G.number_of_nodes() == 0:
+        print("co-spend图为空")
+        return None, None
+    print("正在进行co-spend聚类...")
+    clusters = cluster_addresses(G, 'louvain')
+    cluster_df, cluster_stats = analyze_clusters(clusters, holders_df)
+    visualize_clusters(G, clusters, output_path)
+    return cluster_df, cluster_stats

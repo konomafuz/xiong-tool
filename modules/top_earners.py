@@ -2,6 +2,8 @@ import time
 import json
 import requests
 import pandas as pd
+import time
+import gc
 from utils import fetch_data_robust
 
 class TopEarnersTracker:
@@ -19,29 +21,94 @@ class TopEarnersTracker:
         }
         
     def fetch_top_traders_optimized(self, token_address, chain_id="501", limit=50):
-        """简化的获取TOP交易者方法"""
+        """简化的获取TOP交易者方法 - 修复ETH链支持"""
         print(f"🔍 获取TOP交易者: {token_address[:8]}... 链:{chain_id} 数量:{limit}")
+        
+        # 🔧 根据链ID设置不同的参数
+        chain_id_str = str(chain_id)
         
         url = "https://web3.okx.com/priapi/v1/dx/market/v2/pnl/top-trader/ranking-list"
         params = {
-            "chainId": str(chain_id),
+            "chainId": chain_id_str,
             "tokenContractAddress": token_address,
             "t": int(time.time() * 1000)
         }
         
+        # 🔧 ETH链需要额外的currentUserWalletAddress参数
+        if chain_id_str == "1":
+            # 使用一个有效的ETH地址作为默认currentUserWalletAddress
+            params["currentUserWalletAddress"] = "0x63291f7d06ea0a17306c5e48779baae289865e99"
+            print("🔧 ETH链: 添加currentUserWalletAddress参数")
+        
         try:
-            response = fetch_data_robust(url, params, max_retries=2, timeout=self.max_timeout)
+            # 🔧 ETH链使用更长的超时时间
+            timeout = 35 if chain_id_str == "1" else self.max_timeout
             
-            if not response or response.get('code') != 0:
+            response = fetch_data_robust(url, params, max_retries=3, timeout=timeout)
+            
+            if not response:
+                print(f"❌ 请求无响应")
+                return []
+                
+            # � 增强的响应处理
+            response_code = response.get('code')
+            print(f"🔍 API响应码: {response_code}")
+            
+            if response_code == 100:
+                error_msg = response.get('error_message', response.get('msg', ''))
+                print(f"❌ API错误100: {error_msg}")
+                
+                # 🔧 ETH链特殊错误处理
+                if chain_id_str == "1":
+                    print("💡 ETH链常见问题:")
+                    print("   1. OKX可能暂不支持该ETH代币的盈利地址查询")
+                    print("   2. 该代币可能没有足够的交易数据")
+                    print("   3. 建议尝试Solana链代币获取更好的数据")
+                return []
+                
+            elif response_code != 0:
                 print(f"❌ 请求失败: {response}")
                 return []
             
-            traders = response.get('data', {}).get('list', [])[:limit]
-            print(f"✅ 获取到 {len(traders)} 个交易者")
-            return traders
+            data = response.get('data', {})
+            if not data:
+                print(f"❌ 响应数据为空")
+                return []
+                
+            traders = data.get('list', [])
+            
+            # 🔧 ETH链空数据特殊处理
+            if not traders and chain_id_str == "1":
+                print(f"💡 ETH链数据为空的可能原因:")
+                print(f"   1. 该代币在ETH链上交易活跃度较低")
+                print(f"   2. OKX对ETH链的数据覆盖有限")
+                print(f"   3. 可能需要等待更多交易数据积累")
+                print(f"🔄 建议尝试:")
+                print(f"   - 使用热门的DeFi代币地址")
+                print(f"   - 切换到Solana链(501)获取更丰富的数据")
+                return []
+            
+            if not traders:
+                print(f"❌ 交易者列表为空")
+                return []
+            
+            # 限制返回数量
+            result = traders[:limit]
+            print(f"✅ 获取到 {len(result)} 个交易者")
+            
+            # 🔧 调试信息
+            if result:
+                first_trader = result[0]
+                wallet = first_trader.get('holderWalletAddress', 'N/A')
+                profit = first_trader.get('totalProfit', 'N/A')
+                print(f"🔍 第一个交易者: {wallet[:10]}... 利润: ${profit}")
+            
+            return result
             
         except Exception as e:
             print(f"❌ 请求异常: {e}")
+            import traceback
+            print(f"🔍 详细错误: {traceback.format_exc()}")
             return []
     
     def fetch_address_token_list_optimized(self, wallet_address: str, chain_id=501, max_records=100):

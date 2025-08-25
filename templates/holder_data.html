@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% if task_id %}
+{% block title %}{{ task_id }} - 采集数据{% endblock %}
+{% else %}
+{% block title %}采集数据概览{% endblock %}
+{% endif %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            
+            {% if tasks_summary %}
+            <!-- 所有任务概览模式 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-database"></i> 采集数据概览
+                    </h4>
+                    <a href="{{ url_for('holder_collection') }}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> 返回管理
+                    </a>
+                </div>
+                
+                <div class="card-body">
+                    {% if tasks_summary|length > 0 %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>任务ID</th>
+                                    <th>代币</th>
+                                    <th>状态</th>
+                                    <th>采集间隔</th>
+                                    <th>总采集次数</th>
+                                    <th>最近数据量</th>
+                                    <th>最近采集时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in tasks_summary %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-info">{{ task.task_id }}</span>
+                                    </td>
+                                    <td>{{ task.token_symbol or 'N/A' }}</td>
+                                    <td>
+                                        {% if task.status == 'running' %}
+                                        <span class="badge bg-success">运行中</span>
+                                        {% elif task.status == 'paused' %}
+                                        <span class="badge bg-warning">已暂停</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ task.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ task.interval_hours }}小时</td>
+                                    <td>{{ task.total_collections }}</td>
+                                    <td>
+                                        {% if task.has_data %}
+                                        <span class="text-success">{{ task.recent_data_count }}条</span>
+                                        {% else %}
+                                        <span class="text-muted">暂无数据</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ task.latest_collection or '未采集' }}</td>
+                                    <td>
+                                        {% if task.has_data %}
+                                        <a href="{{ url_for('view_holder_data', task_id=task.task_id) }}" 
+                                           class="btn btn-primary btn-sm">
+                                            <i class="fas fa-eye"></i> 查看
+                                        </a>
+                                        <a href="{{ url_for('export_holder_data', task_id=task.task_id) }}" 
+                                           class="btn btn-success btn-sm">
+                                            <i class="fas fa-download"></i> 导出
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted">无数据</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <p class="text-muted">暂无采集任务</p>
+                        <a href="{{ url_for('holder_collection') }}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> 创建采集任务
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% else %}
+            <!-- 单个任务详细数据模式 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-chart-line"></i> {{ task_id }} - 采集数据
+                    </h4>
+                    <div>
+                        <a href="{{ url_for('export_holder_data', task_id=task_id) }}" 
+                           class="btn btn-success btn-sm">
+                            <i class="fas fa-download"></i> 导出CSV
+                        </a>
+                        <a href="{{ url_for('holder_collection') }}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> 返回列表
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    {% if snapshots_by_time %}
+                    <div class="mb-3">
+                        <h6>数据概览</h6>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body text-center">
+                                        <h5>{{ snapshots_by_time|length }}</h5>
+                                        <small>快照时间点</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body text-center">
+                                        <h5>{{ total_records }}</h5>
+                                        <small>总记录数</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body text-center">
+                                        <h5>{{ (snapshots_by_time.values() | list)[0] | length if snapshots_by_time else 0 }}</h5>
+                                        <small>每次采集数量</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body text-center">
+                                        <h5>{{ (snapshots_by_time.keys() | list | last)[:10] if snapshots_by_time else '-' }}</h5>
+                                        <small>最新快照日期</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 时间线展示 -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6>时间快照数据</h6>
+                            <div class="accordion" id="snapshotAccordion">
+                                {% for snapshot_time, holders in snapshots_by_time.items() %}
+                                <div class="card">
+                                    <div class="card-header" id="heading{{ loop.index }}">
+                                        <h2 class="mb-0">
+                                            <button class="btn btn-link btn-block text-left {{ 'collapsed' if loop.index > 1 else '' }}" 
+                                                    type="button" data-toggle="collapse" 
+                                                    data-target="#collapse{{ loop.index }}" 
+                                                    aria-expanded="{{ 'true' if loop.index == 1 else 'false' }}">
+                                                <i class="fas fa-clock"></i> {{ snapshot_time }}
+                                                <span class="badge badge-primary ml-2">{{ holders|length }} 条记录</span>
+                                                {% if loop.index == 1 %}
+                                                <span class="badge badge-success ml-1">最新</span>
+                                                {% endif %}
+                                            </button>
+                                        </h2>
+                                    </div>
+                                    
+                                    <div id="collapse{{ loop.index }}" 
+                                         class="collapse {{ 'show' if loop.index == 1 else '' }}" 
+                                         data-parent="#snapshotAccordion">
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-striped">
+                                                    <thead class="thead-light">
+                                                        <tr>
+                                                            <th>排名</th>
+                                                            <th>持币地址</th>
+                                                            <th>持仓数量</th>
+                                                            <th>持仓比例</th>
+                                                            <th>价值(USD)</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for holder in holders[:20] %}  <!-- 只显示前20个 -->
+                                                        <tr>
+                                                            <td>
+                                                                <span class="badge badge-{{ 'warning' if holder.rank_position <= 5 else 'secondary' }}">
+                                                                    #{{ holder.rank_position }}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <code class="small">{{ holder.holder_address[:10] }}...{{ holder.holder_address[-6:] }}</code>
+                                                            </td>
+                                                            <td>{{ holder.balance }}</td>
+                                                            <td>
+                                                                <div class="progress" style="height: 20px;">
+                                                                    <div class="progress-bar" 
+                                                                         style="width: {{ holder.percentage * 2 if holder.percentage < 50 else 100 }}%">
+                                                                        {{ "%.4f"|format(holder.percentage) }}%
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                {% if holder.value_usd %}
+                                                                ${{ "%.2f"|format(holder.value_usd) }}
+                                                                {% else %}
+                                                                -
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                        
+                                                        {% if holders|length > 20 %}
+                                                        <tr>
+                                                            <td colspan="5" class="text-center text-muted">
+                                                                <i class="fas fa-ellipsis-h"></i> 
+                                                                还有 {{ holders|length - 20 }} 条记录...
+                                                                <a href="{{ url_for('export_holder_data', task_id=task_id) }}">
+                                                                    点击导出查看全部
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                        {% endif %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-chart-line fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">暂无采集数据</h5>
+                        <p class="text-muted">该任务还未执行采集，或者采集过程中出现了错误</p>
+                        <a href="{{ url_for('holder_collection') }}" class="btn btn-primary">
+                            <i class="fas fa-arrow-left"></i> 返回任务列表
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if snapshots_by_time %}
+<!-- 趋势分析 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-chart-area"></i> 持仓趋势分析
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Top 5 持仓者变化</h6>
+                        <div class="small">
+                            {% set latest_snapshot = (snapshots_by_time.values() | list)[0][:5] %}
+                            {% for holder in latest_snapshot %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span>
+                                    <span class="badge badge-primary">#{{ holder.rank_position }}</span>
+                                    {{ holder.holder_address[:8] }}...
+                                </span>
+                                <span class="badge badge-success">{{ "%.4f"|format(holder.percentage) }}%</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>采集统计</h6>
+                        <div class="small">
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>首次采集:</strong><br>
+                                    {{ (snapshots_by_time.keys() | list | first)[:19] if snapshots_by_time else '-' }}
+                                </div>
+                                <div class="col-6">
+                                    <strong>最新采集:</strong><br>
+                                    {{ (snapshots_by_time.keys() | list | last)[:19] if snapshots_by_time else '-' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

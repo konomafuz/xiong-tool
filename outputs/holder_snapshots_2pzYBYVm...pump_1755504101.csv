@@ -1,0 +1,5 @@
+﻿address,balance,chain_id,explorer_url,hold_create_time,percentage,snapshot_datetime,snapshot_label,snapshot_timestamp
+BUm528oKqdpRYv9AJmVEFtL2RifHtWDMGAKMdxgyaCTd,1000000000,501,https://solscan.io/account/BUm528oKqdpRYv9AJmVEFtL2RifHtWDMGAKMdxgyaCTd,1748494047000,100.0,2025-08-17 07:59:50+00:00,1d_ago,1755417590462
+BUm528oKqdpRYv9AJmVEFtL2RifHtWDMGAKMdxgyaCTd,1000000000,501,https://solscan.io/account/BUm528oKqdpRYv9AJmVEFtL2RifHtWDMGAKMdxgyaCTd,1748494047000,100.0,2025-07-19 07:59:50+00:00,30d_ago,1752911990462
+BUm528oKqdpRYv9AJmVEFtL2RifHtWDMGAKMdxgyaCTd,1000000000,501,https://solscan.io/account/BUm528oKqdpRYv9AJmVEFtL2RifHtWDMGAKMdxgyaCTd,1748494047000,100.0,2025-08-11 07:59:50+00:00,7d_ago,1754899190462
+BUm528oKqdpRYv9AJmVEFtL2RifHtWDMGAKMdxgyaCTd,1000000000,501,https://solscan.io/account/BUm528oKqdpRYv9AJmVEFtL2RifHtWDMGAKMdxgyaCTd,1748494047000,100.0,2025-08-18 07:59:50+00:00,now,1755503990462

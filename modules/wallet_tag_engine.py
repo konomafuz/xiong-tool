@@ -48,10 +48,17 @@ class WalletTagEngine:
             "chainId": chain_id,
             "isAsc": False,
             "sortType": 1,
-            "offset": 0,
+            "offset": 1,
             "limit": 100,
             "t": int(time.time() * 1000)
         }
+        
+        # 🔧 根据你提供的API示例，ETH链需要额外参数
+        chain_id_str = str(chain_id)
+        if chain_id_str in ["1", "56"]:  # ETH链或BSC链
+            params["filterEmptyBalance"] = False
+            params["offset"] = 1 
+            print(f"🔧 {chain_id_str}链: 添加filterEmptyBalance和offset=1参数")
         
         try:
             response = fetch_data_robust(url, params, max_retries=3, timeout=20)
@@ -79,17 +86,22 @@ class WalletTagEngine:
         }
         
         profile_data = {}
+        chain_id_str = str(chain_id)
         
         for period_name, period_type in periods.items():
             params = {
                 "periodType": period_type,
-                "chainId": chain_id,
+                "chainId": chain_id_str,
                 "walletAddress": wallet_address,
                 "t": int(time.time() * 1000)
             }
             
+            # 🔧 ETH链可能需要额外参数（根据API模式推测）
+            if chain_id_str in ["1", "56"]:  # ETH链或BSC链
+                print(f"🔧 {chain_id_str}链profile请求")
+            
             try:
-                response = fetch_data_robust(url, params, max_retries=3, timeout=20)
+                response = fetch_data_robust(url, params, max_retries=3, timeout=25)
                 
                 if response and response.get('code') == 0:
                     data = response.get('data', {})
@@ -103,7 +115,7 @@ class WalletTagEngine:
                     }
                     print(f"✅ 获取{period_name}数据成功")
                 else:
-                    print(f"❌ 获取{period_name}数据失败")
+                    print(f"❌ 获取{period_name}数据失败: {response.get('msg', 'Unknown error') if response else 'No response'}")
                     profile_data[period_name] = self._get_empty_profile()
                 
                 # 避免API限制

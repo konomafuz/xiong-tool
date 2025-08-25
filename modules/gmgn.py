@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from utils import fetch_data_robust
 
 def fetch_top_holders(chain_id, token_address, limit=100):
-    """获取Top Holders"""
+    """获取Top Holders - 支持多链"""
     url = f"https://www.okx.com/priapi/v1/dx/market/v2/holders/ranking-list"
     params = {
         "chainId": chain_id,
@@ -13,6 +13,11 @@ def fetch_top_holders(chain_id, token_address, limit=100):
         "limit": min(limit, 100),  # API单页限制100
         "offset": 0
     }
+    
+    # 🔧 ETH链需要额外的参数
+    if str(chain_id) == "1":
+        params["currentUserWalletAddress"] = "0x63291f7d06ea0a17306c5e48779baae289865e99"
+        print("🔧 ETH链: 添加currentUserWalletAddress参数")
     
     all_holders = []
     
@@ -23,7 +28,8 @@ def fetch_top_holders(chain_id, token_address, limit=100):
             resp = requests.get(url, params=params, timeout=10)
             data = resp.json()
             
-            if not data or "data" not in data or "holderRankingList" not in data["data"]:
+            # 🔧 修复None类型检查
+            if not data or "data" not in data or not data["data"] or "holderRankingList" not in data["data"]:
                 print(f"❌ Holders API 响应异常: {data}")
                 break
                 
@@ -55,12 +61,16 @@ def fetch_top_holders(chain_id, token_address, limit=100):
                     else:
                         tags_flat.append(tag_group)
             
+            # 🔧 确保tags_flat不为None
+            if tags_flat is None:
+                tags_flat = []
+            
             emoji = ""
-            if "suspectedPhishingWallet" in tags_flat and "diamondHands" not in tags_flat:
+            if tags_flat and "suspectedPhishingWallet" in tags_flat and "diamondHands" not in tags_flat:
                 emoji = "🐟"
-            elif "diamondHands" in tags_flat and "suspectedPhishingWallet" not in tags_flat:
+            elif tags_flat and "diamondHands" in tags_flat and "suspectedPhishingWallet" not in tags_flat:
                 emoji = "💎"
-            elif "suspectedPhishingWallet" in tags_flat and "diamondHands" in tags_flat:
+            elif tags_flat and "suspectedPhishingWallet" in tags_flat and "diamondHands" in tags_flat:
                 emoji = "🐠"
             
             holders.append({
@@ -81,7 +91,7 @@ def fetch_top_holders(chain_id, token_address, limit=100):
 
 
 def fetch_top_traders(chain_id, token_address, limit=100):
-    """获取Top Traders"""
+    """获取Top Traders - 支持多链"""
     url = "https://web3.okx.com/priapi/v1/dx/market/v2/pnl/top-trader/ranking-list"
     params = {
         "chainId": chain_id,
@@ -90,6 +100,11 @@ def fetch_top_traders(chain_id, token_address, limit=100):
         "limit": min(limit, 100),
         "offset": 0
     }
+    
+    # 🔧 ETH链需要额外的参数
+    if str(chain_id) == "1":
+        params["currentUserWalletAddress"] = "0x63291f7d06ea0a17306c5e48779baae289865e99"
+        print("🔧 ETH链: 添加currentUserWalletAddress参数")
     
     all_traders = []
     
@@ -130,12 +145,16 @@ def fetch_top_traders(chain_id, token_address, limit=100):
                     else:
                         tags_flat.append(tag_group)
             
+            # 🔧 确保tags_flat不为None
+            if tags_flat is None:
+                tags_flat = []
+            
             emoji = ""
-            if "suspectedPhishingWallet" in tags_flat and "diamondHands" not in tags_flat:
+            if tags_flat and "suspectedPhishingWallet" in tags_flat and "diamondHands" not in tags_flat:
                 emoji = "🐟"
-            elif "diamondHands" in tags_flat and "suspectedPhishingWallet" not in tags_flat:
+            elif tags_flat and "diamondHands" in tags_flat and "suspectedPhishingWallet" not in tags_flat:
                 emoji = "💎"
-            elif "suspectedPhishingWallet" in tags_flat and "diamondHands" in tags_flat:
+            elif tags_flat and "suspectedPhishingWallet" in tags_flat and "diamondHands" in tags_flat:
                 emoji = "🐠"
             
             # 处理利润，转换为k单位
@@ -160,7 +179,7 @@ def fetch_top_traders(chain_id, token_address, limit=100):
 
 
 def fetch_wallet_profile(chain_id, wallet_address, period_type=5):
-    """获取钱包profile信息"""
+    """获取钱包profile信息 - 支持多链"""
     url = "https://web3.okx.com/priapi/v1/dx/market/v2/pnl/wallet-profile/summary"
     
     params = {
@@ -169,6 +188,11 @@ def fetch_wallet_profile(chain_id, wallet_address, period_type=5):
         "walletAddress": wallet_address,
         "t": int(time.time() * 1000)
     }
+    
+    # 🔧 ETH链需要额外的参数
+    if str(chain_id) == "1":
+        params["currentUserWalletAddress"] = "0x63291f7d06ea0a17306c5e48779baae289865e99"
+        print(f"🔧 ETH链: 钱包 {wallet_address[:8]}... 添加currentUserWalletAddress参数")
     
     try:
         response = fetch_data_robust(url, params, max_retries=3, timeout=20)
@@ -186,17 +210,18 @@ def fetch_wallet_profile(chain_id, wallet_address, period_type=5):
 
 
 def check_conspiracy_wallet(wallet_address, chain_id="501", days_before=10):
-    """检查是否为阴谋钱包
+    """检查是否为阴谋钱包 - 支持多链
     
     Args:
         wallet_address: 钱包地址
-        chain_id: 链ID，默认501(Solana)
+        chain_id: 链ID，支持501(Solana)和1(ETH)
         days_before: 检查多少天前的数据，默认10天
     
     Returns:
         bool: True表示是阴谋钱包，False表示不是
     """
-    print(f"🔍 检查钱包 {wallet_address[:8]}... 是否为阴谋钱包")
+    chain_name = "ETH" if str(chain_id) == "1" else "Solana"
+    print(f"🔍 检查{chain_name}链钱包 {wallet_address[:8]}... 是否为阴谋钱包")
     
     # 获取3个月的钱包数据
     wallet_data = fetch_wallet_profile(chain_id, wallet_address, period_type=5)
@@ -357,9 +382,10 @@ def generate_address_remarks(
     top_holders_count=20, 
     top_traders_count=20,
     conspiracy_check=False,
-    conspiracy_days=10
+    conspiracy_days=10,
+    chain_id="501"  # 🔧 新增链ID参数
 ):
-    """生成地址备注
+    """生成地址备注 - 支持多链
     
     Args:
         ca_address: CA地址
@@ -368,6 +394,7 @@ def generate_address_remarks(
         top_traders_count: 获取交易者数量
         conspiracy_check: 是否进行阴谋钱包检查
         conspiracy_days: 阴谋钱包检查天数
+        chain_id: 链ID，支持501(Solana)和1(ETH)
     
     Returns:
         dict: {
@@ -375,11 +402,12 @@ def generate_address_remarks(
             "conspiracy_remarks": [{"address": "", "remark": ""}]  # 阴谋钱包备注
         }
     """
-    print(f"\n🚀 开始处理CA: {ca_name} ({ca_address})")
+    chain_name = "ETH" if str(chain_id) == "1" else "Solana"
+    print(f"\n🚀 开始处理{chain_name}链CA: {ca_name} ({ca_address})")
     
     # 获取数据
-    holders_data = fetch_top_holders("501", ca_address, top_holders_count)
-    traders_data = fetch_top_traders("501", ca_address, top_traders_count)
+    holders_data = fetch_top_holders(chain_id, ca_address, top_holders_count)
+    traders_data = fetch_top_traders(chain_id, ca_address, top_traders_count)
     
     # 合并数据
     address_map = {}
@@ -418,7 +446,7 @@ def generate_address_remarks(
         is_conspiracy = False
         if conspiracy_check:
             try:
-                is_conspiracy = check_conspiracy_wallet(address, chain_id="501", days_before=conspiracy_days)
+                is_conspiracy = check_conspiracy_wallet(address, chain_id=chain_id, days_before=conspiracy_days)
             except Exception as e:
                 print(f"❌ 检查钱包 {address[:8]}... 阴谋状态失败: {e}")
                 is_conspiracy = False

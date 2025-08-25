@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}资金流分析{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-stream"></i> 链上资金流分析
+                    </h4>
+                    <p class="text-muted mt-2">分析地址间的资金流向、来源标注和聚类识别</p>
+                </div>
+                
+                <div class="card-body">
+                    <!-- 数据上传表单 -->
+                    <form method="post" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="tx_file">上传交易数据CSV文件:</label>
+                                    <input type="file" class="form-control-file" id="tx_file" name="tx_file" accept=".csv" required>
+                                    <small class="form-text text-muted">
+                                        文件需包含字段: from_address, to_address, value, tx_hash(可选)
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="knownSources">已知地址标注 (可选):</label>
+                                    <textarea class="form-control" id="knownSources" name="knownSources" rows="3" 
+                                              placeholder="格式: 地址,标签&#10;例如:&#10;0x1234...,Binance交易所&#10;0x5678...,OTC商户"></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="chart_style">可视化样式:</label>
+                                    <select class="form-control" id="chart_style" name="chart_style">
+                                        <option value="refined">精细线条 (推荐)</option>
+                                        <option value="standard">标准线条</option>
+                                        <option value="network">网络图样式</option>
+                                    </select>
+                                    <small class="form-text text-muted">精细线条样式让图表更清爽美观</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-chart-line"></i> 开始分析
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- 示例数据下载 -->
+                    <div class="mt-3 text-center">
+                        <a href="{{ url_for('static', filename='../sample_transactions.csv') }}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-download"></i> 下载示例数据
+                        </a>
+                        <a href="{{ url_for('static', filename='../sample_labels.txt') }}" class="btn btn-outline-secondary btn-sm ml-2">
+                            <i class="fas fa-tags"></i> 下载标注示例
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if source_stats or cluster_results %}
+    <!-- 分析结果 -->
+    <div class="row mt-4">
+        <!-- 资金来源分析 -->
+        {% if source_stats %}
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-pie"></i> 资金来源分析</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>来源标签</th>
+                                    <th>总金额</th>
+                                    <th>占比</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in source_stats %}
+                                <tr>
+                                    <td>{{ item.source_label }}</td>
+                                    <td>{{ "%.2e"|format(item.value) }}</td>
+                                    <td>
+                                        {% set total = source_stats|sum(attribute='value') %}
+                                        {% if total > 0 %}
+                                            {{ "%.1f%%"|format(item.value / total * 100) }}
+                                        {% else %}
+                                            0%
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 聚类分析结果 -->
+        {% if cluster_results %}
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-project-diagram"></i> 地址聚类分析</h5>
+                </div>
+                <div class="card-body">
+                    {% if cluster_results.transfer %}
+                    <h6>转账关系聚类</h6>
+                    <p>发现 <strong>{{ cluster_results.transfer.cluster_count }}</strong> 个地址集群</p>
+                    {% endif %}
+                    
+                    {% if cluster_results.co_spend %}
+                    <h6>Co-spend分析</h6>
+                    <p>发现 <strong>{{ cluster_results.co_spend.cluster_count }}</strong> 个共花费集群</p>
+                    {% endif %}
+                    
+                    {% if not cluster_results.transfer and not cluster_results.co_spend %}
+                    <p class="text-muted">未发现明显的地址集群</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- 可视化和统计 -->
+    <div class="row mt-4">
+        <div class="col-md-8">
+            {% if sankey_available %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-share-alt"></i> 资金流向图</h5>
+                </div>
+                <div class="card-body text-center">
+                    <a href="{{ url_for('view_sankey') }}" target="_blank" class="btn btn-success btn-lg">
+                        <i class="fas fa-external-link-alt"></i> 查看Sankey流向图
+                    </a>
+                    <p class="text-muted mt-2">点击在新窗口中查看交互式资金流向图</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-md-4">
+            {% if total_transactions %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle"></i> 分析统计</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-12 mb-3">
+                            <h6>总交易数</h6>
+                            <h4 class="text-primary">{{ total_transactions }}</h4>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <h6>唯一地址数</h6>
+                            <h4 class="text-info">{{ unique_addresses }}</h4>
+                        </div>
+                        <div class="col-12">
+                            <h6>总交易金额</h6>
+                            <h4 class="text-success">{{ "%.2e"|format(total_value) }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 使用说明 -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-question-circle"></i> 使用说明</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>📊 资金来源分析</h6>
+                            <ul class="small">
+                                <li>标注已知地址（交易所、OTC等）</li>
+                                <li>统计各来源的资金流入量</li>
+                                <li>识别主要资金来源</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>🔗 地址聚类分析</h6>
+                            <ul class="small">
+                                <li>基于转账关系识别地址集群</li>
+                                <li>Co-spend分析发现共控地址</li>
+                                <li>适用于反洗钱和巨鲸分析</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>🎯 Sankey流向图</h6>
+                            <ul class="small">
+                                <li>可视化资金流动路径</li>
+                                <li>交互式查看流量分布</li>
+                                <li>支持HTML导出</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
